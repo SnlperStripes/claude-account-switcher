@@ -216,14 +216,31 @@ func openFolder(path string) { _ = start("explorer.exe", path) }
 const runKey = `Software\Microsoft\Windows\CurrentVersion\Run`
 const runValue = "ClaudeAccountSwitcher"
 
+// approvedKey holds the on/off switch that Task Manager and Settings show for
+// each Run entry. Windows 11 skipped our Run entry at login while it had no
+// record here, so enabling writes one the way Task Manager does.
+const approvedKey = `Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run`
+
+// approvedOn is Task Manager's "enabled" record: 02 followed by 11 zero bytes.
+// An odd first byte (03) means the user disabled the entry there.
+var approvedOn = append([]byte{2}, make([]byte, 11)...)
+
 func autostartEnabled() bool {
 	k, err := registry.OpenKey(registry.CURRENT_USER, runKey, registry.QUERY_VALUE)
 	if err != nil {
 		return false
 	}
 	defer k.Close()
-	_, _, err = k.GetStringValue(runValue)
-	return err == nil
+	if _, _, err = k.GetStringValue(runValue); err != nil {
+		return false
+	}
+	a, err := registry.OpenKey(registry.CURRENT_USER, approvedKey, registry.QUERY_VALUE)
+	if err != nil {
+		return true
+	}
+	defer a.Close()
+	b, _, err := a.GetBinaryValue(runValue)
+	return err != nil || len(b) == 0 || b[0]&1 == 0
 }
 
 func setAutostart(on bool) error {
@@ -232,14 +249,23 @@ func setAutostart(on bool) error {
 		return err
 	}
 	defer k.Close()
+	a, _, err := registry.CreateKey(registry.CURRENT_USER, approvedKey, registry.SET_VALUE)
+	if err != nil {
+		return err
+	}
+	defer a.Close()
 	if !on {
+		_ = a.DeleteValue(runValue)
 		return k.DeleteValue(runValue)
 	}
 	exe, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	return k.SetStringValue(runValue, `"`+exe+`"`)
+	if err := k.SetStringValue(runValue, `"`+exe+`"`); err != nil {
+		return err
+	}
+	return a.SetBinaryValue(runValue, approvedOn)
 }
 
 func hidden(cmd *exec.Cmd) *exec.Cmd {

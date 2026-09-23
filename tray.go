@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"runtime"
 	"strings"
 	"time"
@@ -47,6 +48,13 @@ func (t *tray) onReady() {
 	t.add = systray.AddMenuItem("Add account…", "Restart Claude on its sign-in screen, your current account is kept")
 	t.importNow = systray.AddMenuItem("Import chats from all accounts", "Restart Claude so every chat shows up in this account")
 	systray.AddSeparator()
+	// Rewriting an enabled entry keeps its path current and adds the Task
+	// Manager record that entries from before v0.1.2 are missing.
+	if autostartEnabled() {
+		if err := setAutostart(true); err != nil {
+			log.Printf("refresh start at login: %v", err)
+		}
+	}
 	t.autostart = systray.AddMenuItemCheckbox("Start at login", "", autostartEnabled())
 	folder := systray.AddMenuItem("Open data folder", "")
 	quit := systray.AddMenuItem("Quit", "")
