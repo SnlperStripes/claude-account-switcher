@@ -1,0 +1,85 @@
+// Command claude-account-switcher is a tray tool for the Claude desktop app.
+// It switches the app between signed-in accounts without signing in again,
+// keeps Claude Code chats visible in every account and shows plan usage.
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"io"
+	"log"
+	"net"
+	"os"
+	"path/filepath"
+	"time"
+
+	"fyne.io/systray"
+)
+
+const version = "0.1.0"
+
+// Only one switcher may run; a second start exits quietly.
+const instancePort = "127.0.0.1:47823"
+
+func main() {
+	status := flag.Bool("status", false, "print accounts and usage, then exit")
+	flag.Parse()
+
+	base, err := os.UserConfigDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+	dir := filepath.Join(base, "claude-account-switcher")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		log.Fatal(err)
+	}
+	setupLog(filepath.Join(dir, "switcher.log"))
+
+	if *status {
+		printStatus(newSwitcher(dir))
+		return
+	}
+
+	lock, err := net.Listen("tcp", instancePort)
+	if err != nil {
+		log.Print("already running")
+		return
+	}
+	defer lock.Close()
+
+	log.Printf("claude-account-switcher %s, app data in %s", version, claudeDesktop().dir)
+	t := &tray{s: newSwitcher(dir), updates: make(chan struct{}, 1)}
+	systray.Run(t.onReady, func() {})
+}
+
+// setupLog writes to switcher.log and starts it over once it passes 1 MB.
+func setupLog(path string) {
+	flags := os.O_CREATE | os.O_WRONLY | os.O_APPEND
+	if info, err := os.Stat(path); err == nil && info.Size() > 1<<20 {
+		flags |= os.O_TRUNC
+	}
+	f, err := os.OpenFile(path, flags, 0o600)
+	if err != nil {
+		return
+	}
+	log.SetOutput(io.MultiWriter(f, os.Stderr))
+}
+
+// printStatus refreshes once and prints what the menu would show.
+func printStatus(s *switcher) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	s.refresh(ctx)
+	snap := s.snapshot()
+	if len(snap.Accounts) == 0 {
+		fmt.Println("no accounts yet, sign in to Claude")
+	}
+	for _, a := range snap.Accounts {
+		mark := " "
+		if a.UUID == snap.Active {
+			mark = "*"
+		}
+		fmt.Printf("%s %s  %s\n", mark, a.label(), usageText(a, snap.Threshold, time.Now()))
+	}
+}

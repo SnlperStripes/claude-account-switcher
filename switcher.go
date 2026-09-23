@@ -1,0 +1,402 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"sync"
+	"sync/atomic"
+	"time"
+)
+
+// Account is a Claude account the switcher has seen signed in.
+type Account struct {
+	UUID    string `json:"uuid"`
+	Org     string `json:"org"`
+	Name    string `json:"name"`
+	Email   string `json:"email"`
+	Plan    string `json:"plan"`
+	Usage   *Usage `json:"usage,omitempty"`
+	Problem string `json:"problem,omitempty"`
+}
+
+func (a *Account) label() string {
+	name := a.Name
+	if name == "" {
+		name = a.Email
+	}
+	if a.Plan != "" {
+		name += " (" + a.Plan + ")"
+	}
+	return name
+}
+
+// State is what the switcher remembers between runs.
+type State struct {
+	Accounts   []*Account `json:"accounts"`
+	AutoSwitch bool       `json:"autoSwitch"`
+	Threshold  float64    `json:"threshold"`
+	LastSwitch time.Time  `json:"lastSwitch"`
+	AppExe     string     `json:"appExe,omitempty"`
+}
+
+const (
+	defaultThreshold = 96
+	// An auto switch only goes to an account with this much room below the threshold.
+	autoHeadroom = 10
+	// No second auto switch this soon after the last switch.
+	autoCooldown = 10 * time.Minute
+	activeEvery  = time.Minute
+	idleEvery    = 5 * time.Minute
+)
+
+type switcher struct {
+	d        desktop
+	dir      string
+	mu       sync.Mutex
+	st       State
+	active   string
+	busy     atomic.Bool
+	status   string
+	addingAt time.Time
+	onChange func()
+}
+
+func newSwitcher(dir string) *switcher {
+	s := &switcher{d: claudeDesktop(), dir: dir, st: State{Threshold: defaultThreshold}, onChange: func() {}}
+	if data, err := os.ReadFile(s.statePath()); err == nil {
+		_ = json.Unmarshal(data, &s.st)
+	}
+	if s.st.Threshold <= 0 {
+		s.st.Threshold = defaultThreshold
+	}
+	return s
+}
+
+func (s *switcher) statePath() string             { return filepath.Join(s.dir, "state.json") }
+func (s *switcher) profileDir(uuid string) string { return filepath.Join(s.dir, "accounts", uuid) }
+func (s *switcher) backupsDir() string            { return filepath.Join(s.dir, "backups") }
+
+// saveState writes state.json. Callers hold s.mu.
+func (s *switcher) saveState() {
+	data, _ := json.MarshalIndent(s.st, "", "  ")
+	if err := writeFileAtomic(s.statePath(), data); err != nil {
+		log.Printf("save state: %v", err)
+	}
+}
+
+func (s *switcher) setStatus(msg string) {
+	s.mu.Lock()
+	s.status = msg
+	s.mu.Unlock()
+	if msg != "" {
+		log.Print(msg)
+	}
+	s.onChange()
+}
+
+func (s *switcher) account(uuid string) *Account {
+	for _, a := range s.st.Accounts {
+		if a.UUID == uuid {
+			return a
+		}
+	}
+	return nil
+}
+
+// tokenFor returns an access token for an account: from the app's live config
+// when it is signed in, otherwise from its saved profile.
+func (s *switcher) tokenFor(uuid, active string) (string, error) {
+	path := filepath.Join(s.profileDir(uuid), "config.json")
+	if uuid == active {
+		path = s.d.configPath()
+	}
+	cache, err := tokenCacheOf(path)
+	if err != nil {
+		return "", err
+	}
+	return accessToken(cache, uuid)
+}
+
+// refresh notices sign-ins, keeps usage current and runs the auto switch.
+func (s *switcher) refresh(ctx context.Context) {
+	if s.busy.Load() {
+		return
+	}
+	active, err := s.d.activeAccount()
+	if err != nil {
+		log.Printf("read app config: %v", err)
+	}
+	_, exe := desktopProcesses()
+
+	s.mu.Lock()
+	s.active = active
+	if exe != "" {
+		s.st.AppExe = exe
+	}
+	type job struct {
+		uuid string
+		new  bool
+	}
+	var jobs []job
+	if active != "" && s.account(active) == nil {
+		jobs = append(jobs, job{active, true})
+	}
+	for _, a := range s.st.Accounts {
+		every := idleEvery
+		if a.UUID == active {
+			every = activeEvery
+		}
+		if a.Usage == nil || time.Since(a.Usage.CheckedAt) >= every-5*time.Second {
+			jobs = append(jobs, job{a.UUID, false})
+		}
+	}
+	s.mu.Unlock()
+
+	added := false
+	for _, j := range jobs {
+		token, err := s.tokenFor(j.uuid, active)
+		var p profile
+		var u *Usage
+		if err == nil && j.new {
+			p, err = fetchProfile(ctx, token)
+		}
+		if err == nil {
+			u, err = fetchUsage(ctx, token)
+		}
+
+		s.mu.Lock()
+		a := s.account(j.uuid)
+		if j.new && err == nil {
+			a = &Account{UUID: j.uuid, Org: p.Organization.UUID, Name: p.Account.DisplayName, Email: p.Account.Email, Plan: p.plan()}
+			s.st.Accounts = append(s.st.Accounts, a)
+			added = true
+			log.Printf("added account %s", a.label())
+		}
+		if a != nil {
+			switch {
+			case err == nil:
+				a.Usage, a.Problem = u, ""
+			case errors.Is(err, errSignedOut):
+				a.Problem = "signed out, add it again"
+			default:
+				log.Printf("usage %s: %v", a.label(), err)
+			}
+		}
+		s.mu.Unlock()
+	}
+
+	s.mu.Lock()
+	adding := !s.addingAt.IsZero()
+	if added && adding {
+		s.addingAt = time.Time{}
+	} else if adding && time.Since(s.addingAt) > 15*time.Minute {
+		s.addingAt, s.status = time.Time{}, ""
+	}
+	s.saveState()
+	target := s.autoTarget(desktopRunning(), time.Now())
+	s.mu.Unlock()
+	s.onChange()
+
+	switch {
+	case added && adding:
+		// A fresh sign-in: restart once so the chats of the other accounts show up.
+		s.run("Importing chats", func() error { return s.importChats() })
+	case target != nil:
+		s.run("Auto switch", func() error { return s.switchTo(target.UUID) })
+	}
+}
+
+// autoTarget picks the account to switch to when the active one is nearly
+// full. Callers hold s.mu.
+func (s *switcher) autoTarget(running bool, now time.Time) *Account {
+	cur := s.account(s.active)
+	if !s.st.AutoSwitch || !running || cur == nil || cur.Usage == nil || now.Sub(s.st.LastSwitch) < autoCooldown {
+		return nil
+	}
+	if cur.Usage.current(now).peak() < s.st.Threshold {
+		return nil
+	}
+	var best *Account
+	for _, a := range s.st.Accounts {
+		if a == cur || a.Usage == nil || a.Problem != "" || now.Sub(a.Usage.CheckedAt) > 2*idleEvery {
+			continue
+		}
+		if p := a.Usage.current(now).peak(); p < s.st.Threshold-autoHeadroom && (best == nil || p < best.Usage.current(now).peak()) {
+			best = a
+		}
+	}
+	return best
+}
+
+// run does one app restart at a time and reports the outcome in the menu.
+func (s *switcher) run(what string, f func() error) {
+	if !s.busy.CompareAndSwap(false, true) {
+		return
+	}
+	err := f()
+	s.busy.Store(false)
+	if err != nil {
+		s.setStatus(fmt.Sprintf("%s failed: %v", what, err))
+		return
+	}
+	s.mu.Lock()
+	if s.addingAt.IsZero() {
+		s.status = ""
+	}
+	s.mu.Unlock()
+	s.onChange()
+	s.refresh(context.Background())
+}
+
+// restart closes the app, runs change on its files and starts it again. If
+// change fails, the app files are put back as they were.
+func (s *switcher) restart(change func(active string) error) error {
+	if err := quitDesktop(); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	exe := s.st.AppExe
+	s.mu.Unlock()
+	defer func() {
+		if err := startDesktop(exe); err != nil {
+			s.setStatus("Could not start Claude: " + err.Error())
+		}
+	}()
+	bk, err := backup(s.d, s.backupsDir())
+	if err != nil {
+		return fmt.Errorf("backup: %w", err)
+	}
+	active, err := s.d.activeAccount()
+	if err == nil {
+		err = change(active)
+	}
+	if err != nil {
+		if rerr := restoreBackup(s.d, bk); rerr != nil {
+			log.Printf("restore backup %s: %v", bk, rerr)
+		}
+	}
+	return err
+}
+
+// saveActive keeps the signed-in account's latest login before it is replaced.
+func (s *switcher) saveActive(active string) error {
+	if active == "" {
+		return nil
+	}
+	return saveProfile(s.d, s.profileDir(active))
+}
+
+func (s *switcher) switchTo(uuid string) error {
+	s.mu.Lock()
+	target := s.account(uuid)
+	s.mu.Unlock()
+	if target == nil {
+		return errors.New("unknown account")
+	}
+	if _, err := os.Stat(filepath.Join(s.profileDir(uuid), "config.json")); err != nil && uuid != s.snapshot().Active {
+		return fmt.Errorf("no saved sign-in for %s, use Add account", target.label())
+	}
+	s.setStatus("Switching to " + target.label() + "…")
+	err := s.restart(func(active string) error {
+		if active == uuid {
+			return nil
+		}
+		if err := s.saveActive(active); err != nil {
+			return fmt.Errorf("save current sign-in: %w", err)
+		}
+		if err := restoreProfile(s.d, s.profileDir(uuid)); err != nil {
+			return fmt.Errorf("restore sign-in: %w", err)
+		}
+		n, err := syncSessions(s.d.sessionsDir(), target.UUID, target.Org)
+		log.Printf("switched to %s, %d chats imported", target.label(), n)
+		return err
+	})
+	if err == nil {
+		s.mu.Lock()
+		s.st.LastSwitch = time.Now()
+		s.active = uuid
+		s.saveState()
+		s.mu.Unlock()
+	}
+	return err
+}
+
+// addAccount keeps the current sign-in and opens the app on its login screen.
+func (s *switcher) addAccount() error {
+	s.setStatus("Sign in with the other account in Claude")
+	err := s.restart(func(active string) error {
+		if err := s.saveActive(active); err != nil {
+			return err
+		}
+		return clearSignIn(s.d)
+	})
+	if err == nil {
+		s.mu.Lock()
+		s.addingAt = time.Now()
+		s.mu.Unlock()
+	}
+	return err
+}
+
+// importChats makes the chats of all accounts visible in the signed-in one.
+func (s *switcher) importChats() error {
+	s.setStatus("Importing chats…")
+	return s.restart(func(active string) error {
+		s.mu.Lock()
+		a := s.account(active)
+		s.mu.Unlock()
+		if a == nil {
+			return errors.New("no signed-in account")
+		}
+		n, err := syncSessions(s.d.sessionsDir(), a.UUID, a.Org)
+		log.Printf("%d chats imported into %s", n, a.label())
+		return err
+	})
+}
+
+func (s *switcher) setAuto(on bool) {
+	s.mu.Lock()
+	s.st.AutoSwitch = on
+	s.saveState()
+	s.mu.Unlock()
+	s.onChange()
+}
+
+func (s *switcher) setThreshold(t float64) {
+	s.mu.Lock()
+	s.st.Threshold = t
+	s.saveState()
+	s.mu.Unlock()
+	s.onChange()
+}
+
+// snapshot is a copy of what the menu shows.
+type snapshot struct {
+	Accounts   []Account
+	Active     string
+	AutoSwitch bool
+	Threshold  float64
+	Status     string
+	Busy       bool
+}
+
+func (s *switcher) snapshot() snapshot {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	snap := snapshot{Active: s.active, AutoSwitch: s.st.AutoSwitch, Threshold: s.st.Threshold, Status: s.status, Busy: s.busy.Load()}
+	for _, a := range s.st.Accounts {
+		snap.Accounts = append(snap.Accounts, *a)
+	}
+	return snap
+}
+
+func (s *switcher) adding() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return !s.addingAt.IsZero()
+}
