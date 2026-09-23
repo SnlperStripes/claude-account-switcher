@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -125,8 +126,10 @@ func quitDesktop() error {
 	if len(pids) == 0 {
 		return nil
 	}
+	began := time.Now()
 	run("taskkill", pidArgs(pids)...)
 	if waitGone(8 * time.Second) {
+		log.Printf("Claude closed after %s", time.Since(began).Round(100*time.Millisecond))
 		return nil
 	}
 	pids, _ = desktopProcesses()
@@ -134,6 +137,7 @@ func quitDesktop() error {
 	// including this switcher. Every app process is listed in pids anyway.
 	run("taskkill", append([]string{"/F"}, pidArgs(pids)...)...)
 	if waitGone(10 * time.Second) {
+		log.Printf("Claude did not close on request, ended it after %s", time.Since(began).Round(100*time.Millisecond))
 		return nil
 	}
 	return errors.New("Claude did not quit")

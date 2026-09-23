@@ -1,10 +1,10 @@
 name: build
 
+# Runs on release tags and by hand. macOS minutes are expensive on private repos.
 on:
   push:
-    branches: [main]
     tags: ["v*"]
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: write
