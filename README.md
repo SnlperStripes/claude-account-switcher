@@ -144,10 +144,8 @@ One dependency beyond the standard library: [`fyne.io/systray`](https://github.c
 
 This relies on how the Claude desktop app stores its files today, not on a published interface. An app update can change that. When it does, the switcher fails loudly, restores its backup and says so in the menu. It does not guess.
 
----
+## License
 
-<div align="center">
+[PolyForm Noncommercial 1.0.0](LICENSE). **Free for personal use**, and free for schools, charities, research and government. Using it at a company, for paid client work, or inside anything you sell needs a commercial license. Ask [@SnlperStripes](https://github.com/SnlperStripes).
 
-Built by [Orchestiq](https://orchestiq.com), a one-person software business in Hamburg. MIT licensed.
-
-</div>
+**Credit is part of the deal.** Anyone who passes this on, changed or not, has to pass on the license and its `Required Notice` line, which names the author and links back here.
