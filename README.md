@@ -89,7 +89,7 @@ When it is on, all of these have to hold before the switcher acts:
 | --- | --- |
 | The active account is at or above the threshold, 5-hour or weekly | 96% by default, so the switch lands before a reply gets cut off at 100% |
 | Another account is at least 10 points below the threshold | No bouncing onto an account that is nearly full too |
-| That account's usage was checked in the last 10 minutes | No decisions on stale numbers |
+| The active account was checked in the last 5 minutes, the other one in the last 15 | No decisions on stale numbers |
 | The last switch was more than 10 minutes ago | No ping-pong |
 | Claude is running | It never starts Claude behind your back |
 
@@ -117,7 +117,7 @@ Claude keeps its sign-in in two places inside its data folder:
 
 Before each switch, `config.json` and the cookie store are backed up. The last 10 backups are kept. If any step fails, the backup goes back and the error shows at the top of the menu.
 
-**Usage.** The saved token cache is decrypted in memory with Claude's own key (DPAPI on Windows, the keychain on macOS). The switcher then asks `api.anthropic.com` for each account's profile and usage, the same endpoints Claude and Claude Code use themselves. The active account is checked every minute, the others every five. Claude's tokens last about a month, so a saved account keeps showing live usage without being signed in.
+**Usage.** The saved token cache is decrypted in memory with Claude's own key (DPAPI on Windows, the keychain on macOS). The switcher then asks `api.anthropic.com` for each account's profile and usage, the same endpoints Claude and Claude Code use themselves. The active account is checked every two minutes, every minute from 85%, the others every ten. That endpoint is rate-limited per account and Claude polls it too, so after a `429` the switcher waits as long as the server asks, or backs off up to 30 minutes, and keeps showing the last numbers meanwhile. Claude's tokens last about a month, so a saved account keeps showing live usage without being signed in.
 
 **The Store app quirk.** Programs started from inside the Store version of Claude, a Claude Code terminal for example, see a redirected AppData folder. The switcher notices when it was started that way and starts itself again through Explorer, so it sees the real files and survives Claude quitting.
 

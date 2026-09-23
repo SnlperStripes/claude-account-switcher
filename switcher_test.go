@@ -184,6 +184,16 @@ func TestAutoTarget(t *testing.T) {
 	if got := s.autoTarget(false, now); got != nil {
 		t.Fatal("switched while Claude is closed")
 	}
+	full.Usage.CheckedAt = now.Add(-activeFresh - time.Minute)
+	if got := s.autoTarget(true, now); got != nil {
+		t.Fatal("switched on stale numbers for the active account")
+	}
+	full.Usage.CheckedAt = now
+	reset.Usage.CheckedAt = now.Add(-idleFresh - time.Minute)
+	if got := s.autoTarget(true, now); got != roomy {
+		t.Fatalf("picked %v, want b once d is stale", got)
+	}
+	reset.Usage.CheckedAt = now
 	s.st.LastSwitch = now.Add(-time.Minute)
 	if got := s.autoTarget(true, now); got != nil {
 		t.Fatal("switched again during the cooldown")

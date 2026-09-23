@@ -50,8 +50,17 @@ const (
 	autoHeadroom = 10
 	// No second auto switch this soon after the last switch.
 	autoCooldown = 10 * time.Minute
-	activeEvery  = time.Minute
-	idleEvery    = 5 * time.Minute
+
+	// The usage endpoint rate-limits per account, and Claude polls it too.
+	// The active account is checked more often once it gets close.
+	activeEvery = 2 * time.Minute
+	hotEvery    = time.Minute
+	hotAt       = 85
+	idleEvery   = 10 * time.Minute
+	// Auto switch only trusts numbers this fresh.
+	activeFresh = 5 * time.Minute
+	idleFresh   = idleEvery + 5*time.Minute
+	maxBackoff  = 30 * time.Minute
 )
 
 type switcher struct {
@@ -64,10 +73,14 @@ type switcher struct {
 	status   string
 	addingAt time.Time
 	onChange func()
+	// After a 429, an account is not asked again before its backoff ends.
+	backoff map[string]time.Time
+	strikes map[string]int
 }
 
 func newSwitcher(dir string) *switcher {
-	s := &switcher{d: claudeDesktop(), dir: dir, st: State{Threshold: defaultThreshold}, onChange: func() {}}
+	s := &switcher{d: claudeDesktop(), dir: dir, st: State{Threshold: defaultThreshold}, onChange: func() {},
+		backoff: map[string]time.Time{}, strikes: map[string]int{}}
 	if data, err := os.ReadFile(s.statePath()); err == nil {
 		_ = json.Unmarshal(data, &s.st)
 	}
@@ -142,16 +155,21 @@ func (s *switcher) refresh(ctx context.Context) {
 		uuid string
 		new  bool
 	}
+	now := time.Now()
 	var jobs []job
-	if active != "" && s.account(active) == nil {
+	if active != "" && s.account(active) == nil && now.After(s.backoff[active]) {
 		jobs = append(jobs, job{active, true})
 	}
 	for _, a := range s.st.Accounts {
 		every := idleEvery
 		if a.UUID == active {
 			every = activeEvery
+			if a.Usage != nil && a.Usage.current(now).peak() >= hotAt {
+				every = hotEvery
+			}
 		}
-		if a.Usage == nil || time.Since(a.Usage.CheckedAt) >= every-5*time.Second {
+		due := a.Usage == nil || now.Sub(a.Usage.CheckedAt) >= every-5*time.Second
+		if due && now.After(s.backoff[a.UUID]) {
 			jobs = append(jobs, job{a.UUID, false})
 		}
 	}
@@ -170,6 +188,18 @@ func (s *switcher) refresh(ctx context.Context) {
 		}
 
 		s.mu.Lock()
+		var limited *rateLimited
+		if errors.As(err, &limited) {
+			s.strikes[j.uuid]++
+			wait := limited.after
+			if wait <= 0 {
+				wait = min(activeEvery<<(s.strikes[j.uuid]-1), maxBackoff)
+			}
+			s.backoff[j.uuid] = time.Now().Add(wait)
+			log.Printf("usage %s: rate limited, next try in %s", j.uuid[:8], wait)
+		} else if err == nil {
+			delete(s.strikes, j.uuid)
+		}
 		a := s.account(j.uuid)
 		if j.new && err == nil {
 			a = &Account{UUID: j.uuid, Org: p.Organization.UUID, Name: p.Account.DisplayName, Email: p.Account.Email, Plan: p.plan()}
@@ -183,6 +213,8 @@ func (s *switcher) refresh(ctx context.Context) {
 				a.Usage, a.Problem = u, ""
 			case errors.Is(err, errSignedOut):
 				a.Problem = "signed out, add it again"
+			case limited != nil:
+				// Logged above; the last numbers stay until the next try.
 			default:
 				log.Printf("usage %s: %v", a.label(), err)
 			}
@@ -215,7 +247,7 @@ func (s *switcher) refresh(ctx context.Context) {
 // full. Callers hold s.mu.
 func (s *switcher) autoTarget(running bool, now time.Time) *Account {
 	cur := s.account(s.active)
-	if !s.st.AutoSwitch || !running || cur == nil || cur.Usage == nil || now.Sub(s.st.LastSwitch) < autoCooldown {
+	if !s.st.AutoSwitch || !running || cur == nil || cur.Usage == nil || now.Sub(cur.Usage.CheckedAt) > activeFresh || now.Sub(s.st.LastSwitch) < autoCooldown {
 		return nil
 	}
 	if cur.Usage.current(now).peak() < s.st.Threshold {
@@ -223,7 +255,7 @@ func (s *switcher) autoTarget(running bool, now time.Time) *Account {
 	}
 	var best *Account
 	for _, a := range s.st.Accounts {
-		if a == cur || a.Usage == nil || a.Problem != "" || now.Sub(a.Usage.CheckedAt) > 2*idleEvery {
+		if a == cur || a.Usage == nil || a.Problem != "" || now.Sub(a.Usage.CheckedAt) > idleFresh {
 			continue
 		}
 		if p := a.Usage.current(now).peak(); p < s.st.Threshold-autoHeadroom && (best == nil || p < best.Usage.current(now).peak()) {

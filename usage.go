@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -80,16 +81,24 @@ func apiGet(ctx context.Context, token, path string, out any) error {
 		return err
 	}
 	defer res.Body.Close()
-	if res.StatusCode == http.StatusUnauthorized {
+	switch res.StatusCode {
+	case http.StatusOK:
+		return json.NewDecoder(res.Body).Decode(out)
+	case http.StatusUnauthorized:
 		return errSignedOut
+	case http.StatusTooManyRequests:
+		wait, _ := strconv.Atoi(res.Header.Get("Retry-After"))
+		return &rateLimited{after: time.Duration(wait) * time.Second}
 	}
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("%s: %s", path, res.Status)
-	}
-	return json.NewDecoder(res.Body).Decode(out)
+	return fmt.Errorf("%s: %s", path, res.Status)
 }
 
 var errSignedOut = errors.New("sign-in expired")
+
+// rateLimited is a 429. after is the server's Retry-After, zero when it gave none.
+type rateLimited struct{ after time.Duration }
+
+func (e *rateLimited) Error() string { return "rate limited" }
 
 func fetchProfile(ctx context.Context, token string) (profile, error) {
 	var p profile

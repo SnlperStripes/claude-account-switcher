@@ -107,11 +107,12 @@ func (t *tray) onReady() {
 	go t.loop()
 }
 
-// loop polls every few seconds while a new sign-in is expected, otherwise every minute.
+// loop runs refresh every few seconds while a new sign-in is expected,
+// otherwise every minute; refresh decides which accounts are due.
 func (t *tray) loop() {
 	var last time.Time
 	for ; ; time.Sleep(5 * time.Second) {
-		if !t.s.adding() && time.Since(last) < activeEvery {
+		if !t.s.adding() && time.Since(last) < hotEvery {
 			continue
 		}
 		last = time.Now()
