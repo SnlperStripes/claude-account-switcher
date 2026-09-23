@@ -41,6 +41,11 @@ sign-in, and the switcher needs it to read usage.
 
 Turn on **Start at login** in the menu to keep it running.
 
+On Windows, programs started from inside the Store version of Claude (for
+example from a Claude Code terminal) see a redirected AppData folder. If you
+start the switcher that way, it notices and starts itself again through
+Explorer, so it is not affected when Claude quits.
+
 ## First run
 
 1. Sign in to the Claude app as usual. The switcher picks up that account.
@@ -74,7 +79,9 @@ whether automatic switching fits how you use your accounts.
 ## How it works
 
 The Claude desktop app keeps its sign-in in two places inside its data folder
-(`%APPDATA%\Claude` on Windows, `~/Library/Application Support/Claude` on macOS):
+(`%APPDATA%\Claude` on Windows, or
+`%LOCALAPPDATA%\Packages\Claude_<id>\LocalCache\Roaming\Claude` for the
+Microsoft Store app, and `~/Library/Application Support/Claude` on macOS):
 
 - `config.json`: the entries `oauth:tokenCacheV2`, `oauth:tokenCache` and
   `lastKnownAccountUuid`
@@ -101,9 +108,8 @@ saved account keeps showing live usage without being signed in.
 
 ## Your data
 
-- Saved sign-ins, state and log: `%APPDATA%\claude-account-switcher` on
-  Windows, `~/Library/Application Support/claude-account-switcher` on macOS.
-  Use **Open data folder**.
+- Saved sign-ins, state and log: `~/.claude-account-switcher` (on Windows
+  `%USERPROFILE%\.claude-account-switcher`). Use **Open data folder**.
 - Saved tokens stay encrypted exactly as the Claude app stored them. The
   switcher never writes a token in plain text and sends it nowhere except
   `api.anthropic.com`.

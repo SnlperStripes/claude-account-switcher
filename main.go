@@ -43,7 +43,7 @@ func main() {
 		return
 	}
 
-	if relaunchOutsideDesktop() {
+	if relaunchOutsideDesktop(dir) {
 		return
 	}
 

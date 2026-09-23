@@ -27,4 +27,4 @@ func autostartEnabled() bool               { return false }
 func setAutostart(bool) error              { return errUnsupported }
 func decryptValue([]byte) ([]byte, error)  { return nil, errUnsupported }
 
-func relaunchOutsideDesktop() bool { return false }
+func relaunchOutsideDesktop(string) bool { return false }
