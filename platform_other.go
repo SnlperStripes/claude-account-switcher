@@ -26,3 +26,5 @@ func openFolder(string)                    {}
 func autostartEnabled() bool               { return false }
 func setAutostart(bool) error              { return errUnsupported }
 func decryptValue([]byte) ([]byte, error)  { return nil, errUnsupported }
+
+func relaunchOutsideDesktop() bool { return false }

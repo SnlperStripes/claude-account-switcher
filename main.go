@@ -26,18 +26,24 @@ func main() {
 	status := flag.Bool("status", false, "print accounts and usage, then exit")
 	flag.Parse()
 
-	base, err := os.UserConfigDir()
+	// The home folder, because the Store app redirects AppData for everything
+	// it starts but leaves the home folder alone.
+	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatal(err)
 	}
-	dir := filepath.Join(base, "claude-account-switcher")
+	dir := filepath.Join(home, ".claude-account-switcher")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		log.Fatal(err)
 	}
-	setupLog(filepath.Join(dir, "switcher.log"))
+	setupLog(filepath.Join(dir, "switcher.log"), *status)
 
 	if *status {
 		printStatus(newSwitcher(dir))
+		return
+	}
+
+	if relaunchOutsideDesktop() {
 		return
 	}
 
@@ -54,7 +60,8 @@ func main() {
 }
 
 // setupLog writes to switcher.log and starts it over once it passes 1 MB.
-func setupLog(path string) {
+// A tray app has no usable stderr on Windows, so only -status also prints there.
+func setupLog(path string, console bool) {
 	flags := os.O_CREATE | os.O_WRONLY | os.O_APPEND
 	if info, err := os.Stat(path); err == nil && info.Size() > 1<<20 {
 		flags |= os.O_TRUNC
@@ -63,7 +70,11 @@ func setupLog(path string) {
 	if err != nil {
 		return
 	}
-	log.SetOutput(io.MultiWriter(f, os.Stderr))
+	if console {
+		log.SetOutput(io.MultiWriter(f, os.Stderr))
+	} else {
+		log.SetOutput(f)
+	}
 }
 
 // printStatus refreshes once and prints what the menu would show.

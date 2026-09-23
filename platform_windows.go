@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -16,8 +17,53 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
+// claudeDesktop finds the app data folder. The Microsoft Store app keeps it in
+// its package folder; processes started by that app see it as %APPDATA%\Claude,
+// all others do not. The folder with the newest config.json wins.
 func claudeDesktop() desktop {
-	return desktop{dir: filepath.Join(os.Getenv("APPDATA"), "Claude")}
+	dirs, _ := filepath.Glob(filepath.Join(os.Getenv("LOCALAPPDATA"), "Packages", "Claude_*", "LocalCache", "Roaming", "Claude"))
+	dirs = append(dirs, filepath.Join(os.Getenv("APPDATA"), "Claude"))
+	best, newest := dirs[len(dirs)-1], time.Time{}
+	for _, dir := range dirs {
+		if info, err := os.Stat(filepath.Join(dir, "config.json")); err == nil && info.ModTime().After(newest) {
+			best, newest = dir, info.ModTime()
+		}
+	}
+	return desktop{dir: best}
+}
+
+// startedByDesktop reports whether this process runs below the Claude app,
+// for example from a Claude Code terminal. Such processes share the Store
+// app's file and registry redirection.
+func startedByDesktop() bool {
+	snap, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
+	if err != nil {
+		return false
+	}
+	defer windows.CloseHandle(snap)
+	parent := map[uint32]uint32{}
+	var e windows.ProcessEntry32
+	e.Size = uint32(unsafe.Sizeof(e))
+	for err = windows.Process32First(snap, &e); err == nil; err = windows.Process32Next(snap, &e) {
+		parent[e.ProcessID] = e.ParentProcessID
+	}
+	pids, _ := desktopProcesses()
+	for pid, i := parent[uint32(os.Getpid())], 0; pid != 0 && i < 32; pid, i = parent[pid], i+1 {
+		if slices.Contains(pids, pid) {
+			return true
+		}
+	}
+	return false
+}
+
+// relaunchOutsideDesktop starts the switcher again through Explorer when it
+// was started below the Claude app, so it survives Claude quitting.
+func relaunchOutsideDesktop() bool {
+	if !startedByDesktop() {
+		return false
+	}
+	exe, err := os.Executable()
+	return err == nil && start("explorer.exe", exe) == nil
 }
 
 // desktopProcesses returns the running Claude desktop processes and the app's

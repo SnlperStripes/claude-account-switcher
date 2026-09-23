@@ -91,3 +91,5 @@ func setAutostart(on bool) error {
 	}
 	return os.WriteFile(launchAgentPath(), []byte(plist), 0o644)
 }
+
+func relaunchOutsideDesktop() bool { return false }
