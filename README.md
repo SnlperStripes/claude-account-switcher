@@ -60,6 +60,16 @@ Grab the build for your platform from **Releases** and run it. No installer, no 
 
 Then turn on **Start at login** in its menu.
 
+The builds are not code-signed, so the first start gets one warning:
+
+- **Windows:** SmartScreen says "Windows protected your PC". Click **More info**, then **Run anyway**.
+- **macOS:** the download is not executable yet and Gatekeeper blocks it. Run this once in the folder you saved it to:
+  ```bash
+  chmod +x claude-account-switcher-macos && xattr -d com.apple.quarantine claude-account-switcher-macos
+  ```
+
+Every download has a `.sha256` file next to it, so you can check it is the file CI built.
+
 ## First run
 
 1. Start the switcher while you are signed in to Claude. It picks up that account within a minute.

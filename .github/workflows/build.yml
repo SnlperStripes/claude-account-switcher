@@ -40,13 +40,14 @@ jobs:
           else
             go build -ldflags "${{ matrix.flags }}" -o "dist/${{ matrix.out }}" .
           fi
+          cd dist && { sha256sum "${{ matrix.out }}" 2>/dev/null || shasum -a 256 "${{ matrix.out }}"; } > "${{ matrix.out }}.sha256"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.out }}
-          path: dist/${{ matrix.out }}
+          path: dist/${{ matrix.out }}*
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes 2>/dev/null || true; gh release upload "$GITHUB_REF_NAME" "dist/${{ matrix.out }}" --clobber
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes 2>/dev/null || true; gh release upload "$GITHUB_REF_NAME" "dist/${{ matrix.out }}" "dist/${{ matrix.out }}.sha256" --clobber
