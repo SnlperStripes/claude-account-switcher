@@ -146,6 +146,6 @@ This relies on how the Claude desktop app stores its files today, not on a publi
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE). **Free for personal use**, and free for schools, charities, research and government. Using it at a company, for paid client work, or inside anything you sell needs a commercial license. Ask [@SnlperStripes](https://github.com/SnlperStripes).
+[Apache 2.0](LICENSE). Use it, change it, ship it, sell it.
 
-**Credit is part of the deal.** Anyone who passes this on, changed or not, has to pass on the license and its `Required Notice` line, which names the author and links back here.
+**Keep the credit.** If you pass this on, changed or not, include the [`NOTICE`](NOTICE) file, which names the author and links back here, and say what you changed.
