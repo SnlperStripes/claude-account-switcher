@@ -47,11 +47,16 @@ type profile struct {
 	} `json:"account"`
 	Organization struct {
 		UUID string `json:"uuid"`
+		Type string `json:"organization_type"`
 	} `json:"organization"`
 }
 
+// plan names the subscription. The organization type is current; the
+// account flags are only a fallback.
 func (p profile) plan() string {
-	switch {
+	switch t := strings.TrimPrefix(p.Organization.Type, "claude_"); {
+	case t == "max" || t == "pro" || t == "team" || t == "enterprise":
+		return strings.ToUpper(t[:1]) + t[1:]
 	case p.Account.HasMax:
 		return "Max"
 	case p.Account.HasPro:
