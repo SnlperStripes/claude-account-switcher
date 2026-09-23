@@ -85,7 +85,9 @@ func quitDesktop() error {
 		return nil
 	}
 	pids, _ = desktopProcesses()
-	run("taskkill", append([]string{"/F", "/T"}, pidArgs(pids)...)...)
+	// No /T: that would also end anything started from a Claude terminal,
+	// including this switcher. Every app process is listed in pids anyway.
+	run("taskkill", append([]string{"/F"}, pidArgs(pids)...)...)
 	if waitGone(10 * time.Second) {
 		return nil
 	}
