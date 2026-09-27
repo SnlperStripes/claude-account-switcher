@@ -1,6 +1,6 @@
 name: build
 
-# Runs on release tags and by hand. macOS minutes are expensive on private repos.
+# Builds release binaries on version tags and by hand. Tests run in test.yml.
 on:
   push:
     tags: ["v*"]
