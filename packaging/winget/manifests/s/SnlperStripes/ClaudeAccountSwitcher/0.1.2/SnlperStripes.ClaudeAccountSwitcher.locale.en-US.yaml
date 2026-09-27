@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json
 PackageIdentifier: SnlperStripes.ClaudeAccountSwitcher
-PackageVersion: 0.1.1
+PackageVersion: 0.1.2
 PackageLocale: en-US
 Publisher: SnlperStripes
 PublisherUrl: https://github.com/SnlperStripes
@@ -15,7 +15,7 @@ Description: |-
   switches between them in about ten seconds without an email code, carries your
   Claude Code chats across, and shows the live usage of every account.
   Unofficial. Not affiliated with or endorsed by Anthropic.
-Moniker: claude-account-switcher
+Moniker: claude-desktop-account-switcher
 Tags:
   - claude
   - claude-code
@@ -23,6 +23,6 @@ Tags:
   - account-switcher
   - tray
   - usage
-ReleaseNotesUrl: https://github.com/SnlperStripes/claude-account-switcher/releases/tag/v0.1.1
+ReleaseNotesUrl: https://github.com/SnlperStripes/claude-account-switcher/releases/tag/v0.1.2
 ManifestType: defaultLocale
 ManifestVersion: 1.10.0
