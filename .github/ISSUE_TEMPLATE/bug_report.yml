@@ -1,0 +1,58 @@
+name: Bug report
+description: Something did not work as described in the README.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Please **do not paste tokens, cookies or `config.json`** here.
+        The log below never contains tokens, but look over it before you post.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS (Apple silicon)
+        - macOS (Intel)
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How Claude is installed
+      options:
+        - Microsoft Store
+        - Direct download from claude.ai
+        - macOS app
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: claude-version
+    attributes:
+      label: Claude desktop version
+      description: In Claude, Help → About.
+      placeholder: "1.0.0"
+  - type: input
+    id: switcher-version
+    attributes:
+      label: Switcher version
+      description: The first line of `switcher.log` names it.
+      placeholder: "0.1.2"
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log excerpt
+      description: From `switcher.log` in the data folder (**Open data folder** in the tray menu). The last 30 lines around the problem are usually enough.
+      render: text

@@ -2,6 +2,12 @@
 
 <img src="assets/banner.svg" width="880" alt="Claude Account Switcher: switch the Claude desktop app between accounts. No email code, your chats come along.">
 
+[![Latest release](https://img.shields.io/github/v/release/SnlperStripes/claude-account-switcher)](https://github.com/SnlperStripes/claude-account-switcher/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/SnlperStripes/claude-account-switcher/total)](https://github.com/SnlperStripes/claude-account-switcher/releases)
+[![Tests](https://github.com/SnlperStripes/claude-account-switcher/actions/workflows/test.yml/badge.svg)](https://github.com/SnlperStripes/claude-account-switcher/actions/workflows/test.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+![Windows | macOS](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)
+
 **Hit your limit on one Claude account, keep working on the next one. One click, no email code.**
 
 A tray tool for the Claude desktop app. It swaps the signed-in account in about ten seconds,
@@ -153,6 +159,12 @@ One dependency beyond the standard library: [`fyne.io/systray`](https://github.c
 ## Caveats
 
 This relies on how the Claude desktop app stores its files today, not on a published interface. An app update can change that. When it does, the switcher fails loudly, restores its backup and says so in the menu. It does not guess.
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md).
+Got a Mac? A [macOS test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml) helps a lot, even if everything just worked.
+Found a security problem? Please report it privately, see [SECURITY.md](SECURITY.md).
 
 ## License
 
