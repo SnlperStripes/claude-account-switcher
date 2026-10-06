@@ -171,6 +171,7 @@ func jsonInt(v int64) string { b, _ := json.Marshal(v); return string(b) }
 
 func TestAutoTarget(t *testing.T) {
 	now := time.Now()
+	idle := now.Add(-time.Hour)
 	s := &switcher{st: State{AutoSwitch: true, Threshold: 96}, active: "a"}
 	full := &Account{UUID: "a", Usage: &Usage{Session: 97, CheckedAt: now}}
 	roomy := &Account{UUID: "b", Usage: &Usage{Session: 20, Weekly: 40, CheckedAt: now}}
@@ -178,70 +179,71 @@ func TestAutoTarget(t *testing.T) {
 	reset := &Account{UUID: "d", Usage: &Usage{Session: 100, SessionReset: now.Add(-time.Minute), Weekly: 10, CheckedAt: now}}
 	s.st.Accounts = []*Account{full, tight, roomy, reset}
 
-	if got, _ := s.autoTarget(true, now); got != reset {
+	if got, _ := s.autoTarget(true, idle, now); got != reset {
 		t.Fatalf("picked %v, want d (its session window already reset)", got)
 	}
-	if got, _ := s.autoTarget(false, now); got != nil {
+	if got, _ := s.autoTarget(false, idle, now); got != nil {
 		t.Fatal("switched while Claude is closed")
 	}
 	full.Usage.CheckedAt = now.Add(-activeFresh - time.Minute)
-	if got, _ := s.autoTarget(true, now); got != nil {
+	if got, _ := s.autoTarget(true, idle, now); got != nil {
 		t.Fatal("switched on stale numbers for the active account")
 	}
 	full.Usage.CheckedAt = now
 	reset.Usage.CheckedAt = now.Add(-idleFresh - time.Minute)
-	if got, _ := s.autoTarget(true, now); got != roomy {
+	if got, _ := s.autoTarget(true, idle, now); got != roomy {
 		t.Fatalf("picked %v, want b once d is stale", got)
 	}
 	reset.Usage.CheckedAt = now
 	s.st.LastSwitch = now.Add(-time.Minute)
-	if got, _ := s.autoTarget(true, now); got != nil {
+	if got, _ := s.autoTarget(true, idle, now); got != nil {
 		t.Fatal("switched again during the cooldown")
 	}
 	s.st.LastSwitch = time.Time{}
 	full.Usage.Session = 50
-	if got, _ := s.autoTarget(true, now); got != nil {
+	if got, _ := s.autoTarget(true, idle, now); got != nil {
 		t.Fatalf("switched below the threshold to %s", got.UUID)
 	}
 }
 
 func TestSpendWeekly(t *testing.T) {
 	now := time.Now()
+	idle := now.Add(-time.Hour)
 	s := &switcher{st: State{SpendWeekly: true, Threshold: 96}, active: "a"}
 	cur := &Account{UUID: "a", Usage: &Usage{Session: 30, Weekly: 40, WeeklyReset: now.Add(5 * 24 * time.Hour), CheckedAt: now}}
 	later := &Account{UUID: "b", Usage: &Usage{Weekly: 0, WeeklyReset: now.Add(20 * time.Hour), CheckedAt: now}}
 	sooner := &Account{UUID: "c", Usage: &Usage{Weekly: 10, WeeklyReset: now.Add(8 * time.Hour), CheckedAt: now}}
 	s.st.Accounts = []*Account{cur, later, sooner}
 
-	if got, _ := s.autoTarget(true, now); got != sooner {
+	if got, _ := s.autoTarget(true, idle, now); got != sooner {
 		t.Fatalf("picked %v, want c (its week resets first)", got)
 	}
 	sooner.Usage.Weekly = 70
-	if got, _ := s.autoTarget(true, now); got != later {
+	if got, _ := s.autoTarget(true, idle, now); got != later {
 		t.Fatalf("picked %v, want b once c has used most of its week", got)
 	}
 	later.Usage.Session = 90
-	if got, _ := s.autoTarget(true, now); got != nil {
+	if got, _ := s.autoTarget(true, idle, now); got != nil {
 		t.Fatalf("switched to %s with its 5-hour limit nearly full", got.UUID)
 	}
 	later.Usage.Session = 0
 	later.Usage.WeeklyReset = now.Add(30 * time.Hour)
-	if got, _ := s.autoTarget(true, now); got != nil {
+	if got, _ := s.autoTarget(true, idle, now); got != nil {
 		t.Fatal("switched for a week that resets in more than a day")
 	}
 	later.Usage.WeeklyReset = now.Add(20 * time.Hour)
 	cur.Usage.WeeklyReset = now.Add(10 * time.Hour)
-	if got, _ := s.autoTarget(true, now); got != nil {
+	if got, _ := s.autoTarget(true, idle, now); got != nil {
 		t.Fatal("left an account whose own week is running out unused")
 	}
 	cur.Usage.WeeklyReset = now.Add(5 * 24 * time.Hour)
 	s.st.HandSwitch = now.Add(-time.Hour)
-	if got, _ := s.autoTarget(true, now); got != nil {
+	if got, _ := s.autoTarget(true, idle, now); got != nil {
 		t.Fatal("overrode a switch made by hand an hour ago")
 	}
 	s.st.HandSwitch = time.Time{}
 	s.st.SpendWeekly = false
-	if got, _ := s.autoTarget(true, now); got != nil {
+	if got, _ := s.autoTarget(true, idle, now); got != nil {
 		t.Fatal("switched with the setting off")
 	}
 
@@ -252,8 +254,8 @@ func TestSpendWeekly(t *testing.T) {
 	later.Usage.Weekly = 30
 	roomy := &Account{UUID: "d", Usage: &Usage{Weekly: 5, WeeklyReset: now.Add(6 * 24 * time.Hour), CheckedAt: now}}
 	s.st.Accounts = append(s.st.Accounts, roomy)
-	if got, why := s.autoTarget(true, now); got != roomy || why != "nearly full" {
-		t.Fatalf("picked %v (%s), want d because a is nearly full", got, why)
+	if got, why := s.autoTarget(true, idle, now); got != roomy || why != nearlyFull {
+		t.Fatalf("picked %v (cause %d), want d because a is nearly full", got, why)
 	}
 }
 
@@ -270,5 +272,85 @@ func TestUsageTextShowsWeeklyReset(t *testing.T) {
 	a.Usage.Weekly, a.Usage.WeeklyReset = 0, now.Add(6*24*time.Hour+time.Hour)
 	if got, want := usageText(a, 96, now), "5h 20% · week 0%, resets Mon 12 Oct 13:00"; got != want {
 		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestSpendWeeklyWaitsAndComesBack(t *testing.T) {
+	now := time.Now()
+	idle := now.Add(-time.Hour)
+	s := &switcher{st: State{SpendWeekly: true, AutoSwitch: true, Threshold: 96}, active: "a"}
+	a := &Account{UUID: "a", Usage: &Usage{Session: 30, Weekly: 40, WeeklyReset: now.Add(5 * 24 * time.Hour), CheckedAt: now}}
+	b := &Account{UUID: "b", Usage: &Usage{Weekly: 10, WeeklyReset: now.Add(20 * time.Hour), CheckedAt: now}}
+	s.st.Accounts = []*Account{a, b}
+
+	if got, _ := s.autoTarget(true, now.Add(-5*time.Minute), now); got != nil {
+		t.Fatal("switched while a chat was active 5 minutes ago")
+	}
+	if got, cause := s.autoTarget(true, idle, now); got != b || cause != spendWeekly {
+		t.Fatalf("picked %v (cause %d), want b to spend its week", got, cause)
+	}
+
+	// Spend weekly moved to b. Its 5-hour limit fills at 55% of its week,
+	// so the nearly full rule goes back to a.
+	s.st.Spending, s.st.SpendUntil = "b", b.Usage.WeeklyReset
+	s.active = "b"
+	b.Usage.Session, b.Usage.Weekly = 97, 55
+	if got, cause := s.autoTarget(true, idle, now); got != a || cause != nearlyFull {
+		t.Fatalf("picked %v (cause %d), want a because b is nearly full", got, cause)
+	}
+	s.active = "a"
+	if got, _ := s.autoTarget(true, idle, now); got != nil {
+		t.Fatal("went back to b while its 5-hour limit is still full")
+	}
+	// b's 5-hour window resets: back to b although more than half its week is used.
+	b.Usage.Session, b.Usage.SessionReset = 97, now.Add(-time.Minute)
+	if got, _ := s.autoTarget(true, idle, now); got != b {
+		t.Fatalf("picked %v, want b again once its 5-hour window reset", got)
+	}
+	// Once b's week has reset there is nothing left to spend.
+	s.st.SpendUntil = now.Add(-time.Minute)
+	b.Usage.WeeklyReset = now.Add(-time.Minute)
+	if got, _ := s.autoTarget(true, idle, now); got != nil {
+		t.Fatal("kept spending a week that already reset")
+	}
+}
+
+func TestAutoNote(t *testing.T) {
+	now := time.Date(2026, 10, 7, 9, 0, 0, 0, time.Local)
+	s := &switcher{}
+	s.st.Accounts = []*Account{{UUID: "a", Name: "Pepe", Plan: "Pro"}}
+	s.st.LastSwitch = now.Add(-6 * time.Hour)
+	if got := s.autoNote(now); got != "" {
+		t.Fatalf("note after a switch by hand: %q", got)
+	}
+	s.st.LastCause, s.st.LastFrom = nearlyFull, "a"
+	if got, want := s.autoNote(now), "Auto-switched at 03:00, Pepe (Pro) was nearly full"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	s.st.LastCause, s.st.SpendUntil = spendWeekly, now.Add(9*time.Hour)
+	if got, want := s.autoNote(now), "Auto-switched at 03:00 to use up this account's week before it resets 18:00"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	s.st.LastSwitch = now.Add(-noteFor - time.Minute)
+	if got := s.autoNote(now); got != "" {
+		t.Fatalf("note still shown after %s: %q", noteFor, got)
+	}
+}
+
+func TestLastChatWrite(t *testing.T) {
+	root := t.TempDir()
+	if got := lastChatWrite(root); !got.IsZero() {
+		t.Fatalf("no chats, got %v", got)
+	}
+	old, recent := filepath.Join(root, "a", "oa", "local_one.json"), filepath.Join(root, "b", "ob", "local_two.json")
+	write(t, old, "{}")
+	write(t, recent, "{}")
+	write(t, filepath.Join(root, "b", "ob", "deleted_three"), "1")
+	at := time.Now().Add(-time.Hour).Truncate(time.Second)
+	os.Chtimes(old, at.Add(-time.Hour), at.Add(-time.Hour))
+	os.Chtimes(recent, at, at)
+	os.Chtimes(filepath.Join(root, "b", "ob", "deleted_three"), time.Now(), time.Now())
+	if got := lastChatWrite(root); !got.Equal(at) {
+		t.Fatalf("got %v, want %v", got, at)
 	}
 }

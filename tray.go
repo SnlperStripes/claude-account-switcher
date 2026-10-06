@@ -66,7 +66,7 @@ func (t *tray) onReady() {
 			for range item.ClickedCh {
 				snap := t.s.snapshot()
 				if i < len(snap.Accounts) && snap.Accounts[i].UUID != snap.Active {
-					go t.s.run("Switch", func() error { return t.s.switchTo(snap.Accounts[i].UUID, true) })
+					go t.s.run("Switch", func() error { return t.s.switchTo(snap.Accounts[i].UUID, byHand) })
 				}
 				t.s.onChange()
 			}
@@ -138,10 +138,14 @@ func (t *tray) render() {
 	snap := t.s.snapshot()
 	now := time.Now()
 
-	if snap.Status != "" {
+	switch {
+	case snap.Status != "":
 		t.status.SetTitle(snap.Status)
 		t.status.Show()
-	} else {
+	case snap.Note != "":
+		t.status.SetTitle(snap.Note)
+		t.status.Show()
+	default:
 		t.status.Hide()
 	}
 	if len(snap.Accounts) == 0 && snap.Status == "" {

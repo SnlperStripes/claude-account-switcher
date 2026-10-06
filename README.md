@@ -112,8 +112,13 @@ A separate toggle, also off by default: **Auto-switch to use up expiring weekly*
 | It is at least 10 points below the threshold, 5-hour included | It can actually take work right now |
 | The active account is not in the same spot itself, resetting within 24 hours at 50% or less | Its own unused week counts just as much |
 | You did not switch by hand in the last 5 hours | Your own pick wins |
+| No Claude Code chat was active in the last 15 minutes | This switch is never urgent, so it waits instead of cutting off a reply |
 
 The freshness, cooldown and "Claude is running" rules above apply too. When several accounts qualify, the one that resets first wins. With both toggles on, being nearly full comes first: the account with the most room wins over the one that resets first.
+
+Once it has moved to an account, it keeps using that week until the reset, even after more than half of it is used. If that account's 5-hour limit fills up and the normal auto-switch moves away, it comes back once the 5-hour window resets. Switching by hand ends this.
+
+After any automatic switch, from either toggle, the top of the menu says why for 12 hours, for example "Auto-switched at 03:12 to use up this account's week before it resets 18:00".
 
 Anthropic's terms do not forbid having more than one account. They do forbid "bypassing any of our systems or protective measures". Whether automatic switching fits how you use your accounts is your call, which is why both toggles are off until you turn them on.
 
