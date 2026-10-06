@@ -20,6 +20,7 @@ type tray struct {
 	status     *systray.MenuItem
 	accounts   [maxAccounts]*systray.MenuItem
 	auto       *systray.MenuItem
+	spend      *systray.MenuItem
 	thresholds []*systray.MenuItem
 	add        *systray.MenuItem
 	importNow  *systray.MenuItem
@@ -45,6 +46,7 @@ func (t *tray) onReady() {
 	for _, v := range thresholds {
 		t.thresholds = append(t.thresholds, limit.AddSubMenuItemCheckbox(fmt.Sprintf("%.0f%%", v), "", false))
 	}
+	t.spend = systray.AddMenuItemCheckbox("Auto-switch to use up expiring weekly", "Switch to an account whose weekly limit resets within a day with half or more of it unused", false)
 	t.add = systray.AddMenuItem("Add account…", "Restart Claude on its sign-in screen, your current account is kept")
 	t.importNow = systray.AddMenuItem("Import chats from all accounts", "Restart Claude so every chat shows up in this account")
 	systray.AddSeparator()
@@ -64,7 +66,7 @@ func (t *tray) onReady() {
 			for range item.ClickedCh {
 				snap := t.s.snapshot()
 				if i < len(snap.Accounts) && snap.Accounts[i].UUID != snap.Active {
-					go t.s.run("Switch", func() error { return t.s.switchTo(snap.Accounts[i].UUID) })
+					go t.s.run("Switch", func() error { return t.s.switchTo(snap.Accounts[i].UUID, true) })
 				}
 				t.s.onChange()
 			}
@@ -82,6 +84,8 @@ func (t *tray) onReady() {
 			select {
 			case <-t.auto.ClickedCh:
 				t.s.setAuto(!t.auto.Checked())
+			case <-t.spend.ClickedCh:
+				t.s.setSpendWeekly(!t.spend.Checked())
 			case <-t.add.ClickedCh:
 				go t.s.run("Add account", t.s.addAccount)
 			case <-t.importNow.ClickedCh:
@@ -173,6 +177,7 @@ func (t *tray) render() {
 	t.setIcon(activePct, snap.Threshold)
 
 	setChecked(t.auto, snap.AutoSwitch)
+	setChecked(t.spend, snap.SpendWeekly)
 	for i, item := range t.thresholds {
 		setChecked(item, thresholds[i] == snap.Threshold)
 	}
@@ -201,18 +206,27 @@ func usageText(a Account, threshold float64, now time.Time) string {
 	if u.Session >= threshold && !u.SessionReset.IsZero() {
 		parts[0] += " until " + resetText(u.SessionReset, now)
 	}
-	if u.Weekly >= threshold && !u.WeeklyReset.IsZero() {
+	// The weekly reset is always shown: it decides how much of the week is left to use.
+	switch {
+	case u.WeeklyReset.IsZero() || !u.WeeklyReset.After(now):
+	case u.Weekly >= threshold:
 		parts[1] += " until " + resetText(u.WeeklyReset, now)
+	default:
+		parts[1] += ", resets " + resetText(u.WeeklyReset, now)
 	}
 	return strings.Join(parts, " · ")
 }
 
 func resetText(at, now time.Time) string {
 	at, now = at.Local(), now.Local()
-	if at.YearDay() == now.YearDay() && at.Year() == now.Year() {
+	switch {
+	case at.YearDay() == now.YearDay() && at.Year() == now.Year():
 		return at.Format("15:04")
+	case at.Sub(now) < 6*24*time.Hour:
+		return at.Format("Mon 15:04")
 	}
-	return at.Format("Mon 15:04")
+	// A weekday alone would read as today for a reset a week out.
+	return at.Format("Mon 2 Jan 15:04")
 }
 
 func (t *tray) setIcon(pct, threshold float64) {

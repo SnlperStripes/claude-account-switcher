@@ -41,9 +41,9 @@ Three of those four steps are pure overhead, and the fourth is a guess.
 
 **Brings your chats along.** Before Claude starts, the switcher copies the chat list entries of your other accounts into the one you switch to. Open the chat you were in and keep going. Chats you deleted stay deleted.
 
-**Shows usage for all accounts at once.** 5-hour and weekly usage for every saved account, live, with the reset time once a limit is close. The tray icon is a ring that fills with the active account's 5-hour usage: green, orange from 75%, red at your switch threshold.
+**Shows usage for all accounts at once.** 5-hour and weekly usage for every saved account, live, with when each weekly limit resets and the 5-hour reset once that limit is close. The tray icon is a ring that fills with the active account's 5-hour usage: green, orange from 75%, red at your switch threshold.
 
-**Can switch on its own.** Off by default. Turn it on and the switcher moves Claude to the account with the most room left once the active one passes 96% (or 90, 94, 98, your choice).
+**Can switch on its own.** Off by default. Turn it on and the switcher moves Claude to the account with the most room left once the active one passes 96% (or 90, 94, 98, your choice). A second toggle moves it to an account whose weekly limit is about to reset mostly unused, so that usage is not lost.
 
 ## Measured
 
@@ -101,7 +101,21 @@ When it is on, all of these have to hold before the switcher acts:
 
 A switch restarts Claude. A reply that is being written at that moment stops, and you continue it in the same chat on the other account.
 
-Anthropic's terms do not forbid having more than one account. They do forbid "bypassing any of our systems or protective measures". Whether automatic switching fits how you use your accounts is your call, which is why it is off until you turn it on.
+### Use up expiring weekly
+
+A separate toggle, also off by default: **Auto-switch to use up expiring weekly**. Weekly usage you do not spend before the reset is gone. With this on, the switcher moves Claude to another account when all of these hold:
+
+| Rule | Why |
+| --- | --- |
+| The other account's weekly limit resets within 24 hours | That is the usage about to be lost |
+| It has used 50% of its week or less | Worth a restart only when a good part is left |
+| It is at least 10 points below the threshold, 5-hour included | It can actually take work right now |
+| The active account is not in the same spot itself, resetting within 24 hours at 50% or less | Its own unused week counts just as much |
+| You did not switch by hand in the last 5 hours | Your own pick wins |
+
+The freshness, cooldown and "Claude is running" rules above apply too. When several accounts qualify, the one that resets first wins. With both toggles on, being nearly full comes first: the account with the most room wins over the one that resets first.
+
+Anthropic's terms do not forbid having more than one account. They do forbid "bypassing any of our systems or protective measures". Whether automatic switching fits how you use your accounts is your call, which is why both toggles are off until you turn them on.
 
 ## How it works
 
