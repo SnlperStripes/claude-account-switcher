@@ -16,6 +16,7 @@ type desktop struct{ dir string }
 func (d desktop) configPath() string     { return filepath.Join(d.dir, "config.json") }
 func (d desktop) localStatePath() string { return filepath.Join(d.dir, "Local State") }
 func (d desktop) sessionsDir() string    { return filepath.Join(d.dir, "claude-code-sessions") }
+func (d desktop) spacesDir() string      { return filepath.Join(d.dir, "local-agent-mode-sessions") }
 
 // cookieFiles hold the claude.ai web session. They are locked while the app runs.
 func (d desktop) cookieFiles() []string {
