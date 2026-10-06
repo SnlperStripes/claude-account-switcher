@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // The app lists Claude Code chats from claude-code-sessions/<account>/<org>/,
@@ -88,4 +89,18 @@ func lastActivity(path string) (int64, error) {
 
 func samePath(a, b string) bool {
 	return strings.EqualFold(filepath.Clean(a), filepath.Clean(b))
+}
+
+// lastChatWrite is when any chat entry was last written. The app rewrites
+// the entry of a running Claude Code chat as it goes, so this tells whether
+// someone is at work in Claude right now.
+func lastChatWrite(root string) time.Time {
+	var last time.Time
+	paths, _ := filepath.Glob(filepath.Join(root, "*", "*", "local_*.json"))
+	for _, p := range paths {
+		if info, err := os.Stat(p); err == nil && info.ModTime().After(last) {
+			last = info.ModTime()
+		}
+	}
+	return last
 }

@@ -44,8 +44,24 @@ type State struct {
 	SpendWeekly bool      `json:"spendWeekly"`
 	LastSwitch  time.Time `json:"lastSwitch"`
 	HandSwitch  time.Time `json:"handSwitch"`
-	AppExe      string    `json:"appExe,omitempty"`
+	// Why the last switch happened, and the account it left.
+	LastCause switchCause `json:"lastCause,omitempty"`
+	LastFrom  string      `json:"lastFrom,omitempty"`
+	// Spend weekly moved to this account and keeps coming back to it until
+	// its week resets, even once more than half of it is used.
+	Spending   string    `json:"spending,omitempty"`
+	SpendUntil time.Time `json:"spendUntil,omitempty"`
+	AppExe     string    `json:"appExe,omitempty"`
 }
+
+// switchCause says why a switch happened.
+type switchCause int
+
+const (
+	byHand switchCause = iota
+	nearlyFull
+	spendWeekly
+)
 
 const (
 	defaultThreshold = 96
@@ -59,6 +75,11 @@ const (
 	expiringMaxWeekly = 50
 	// A switch made by hand pauses spend weekly this long.
 	handPause = 5 * time.Hour
+	// Spend weekly is never urgent, so it waits until no chat has been
+	// active this long instead of cutting off a reply.
+	idleFor = 15 * time.Minute
+	// The menu says why the last auto switch happened for this long.
+	noteFor = 12 * time.Hour
 
 	// The usage endpoint rate-limits per account, and Claude polls it too.
 	// The active account is checked more often once it gets close.
@@ -231,6 +252,7 @@ func (s *switcher) refresh(ctx context.Context) {
 		s.mu.Unlock()
 	}
 
+	lastChat := lastChatWrite(s.d.sessionsDir())
 	s.mu.Lock()
 	adding := !s.addingAt.IsZero()
 	if added && adding {
@@ -239,7 +261,7 @@ func (s *switcher) refresh(ctx context.Context) {
 		s.addingAt, s.status = time.Time{}, ""
 	}
 	s.saveState()
-	target, why := s.autoTarget(desktopRunning(), time.Now())
+	target, cause := s.autoTarget(desktopRunning(), lastChat, time.Now())
 	s.mu.Unlock()
 	s.onChange()
 
@@ -248,18 +270,17 @@ func (s *switcher) refresh(ctx context.Context) {
 		// A fresh sign-in: restart once so the chats of the other accounts show up.
 		s.run("Importing chats", func() error { return s.importChats() })
 	case target != nil:
-		log.Printf("auto switch to %s: %s", target.label(), why)
-		s.run("Auto switch", func() error { return s.switchTo(target.UUID, false) })
+		s.run("Auto switch", func() error { return s.switchTo(target.UUID, cause) })
 	}
 }
 
 // autoTarget picks the account to switch to and says why: the active one is
 // nearly full, or another one's week is about to reset mostly unused.
-// Callers hold s.mu.
-func (s *switcher) autoTarget(running bool, now time.Time) (*Account, string) {
+// lastChat is when a chat was last active. Callers hold s.mu.
+func (s *switcher) autoTarget(running bool, lastChat, now time.Time) (*Account, switchCause) {
 	cur := s.account(s.active)
 	if !running || cur == nil || cur.Usage == nil || now.Sub(cur.Usage.CheckedAt) > activeFresh || now.Sub(s.st.LastSwitch) < autoCooldown {
-		return nil, ""
+		return nil, byHand
 	}
 	if s.st.AutoSwitch && cur.Usage.current(now).peak() >= s.st.Threshold {
 		var best *Account
@@ -269,22 +290,22 @@ func (s *switcher) autoTarget(running bool, now time.Time) (*Account, string) {
 			}
 		}
 		if best != nil {
-			return best, "nearly full"
+			return best, nearlyFull
 		}
 	}
 	// The active account keeps going while its own week is the one running out.
-	if s.st.SpendWeekly && now.Sub(s.st.HandSwitch) >= handPause && !expiring(cur.Usage.current(now), now) {
+	if s.st.SpendWeekly && now.Sub(s.st.HandSwitch) >= handPause && now.Sub(lastChat) >= idleFor && !s.spendable(cur, now) {
 		var best *Account
 		for _, a := range s.st.Accounts {
-			if s.usable(a, cur, now) && expiring(a.Usage.current(now), now) && (best == nil || a.Usage.WeeklyReset.Before(best.Usage.WeeklyReset)) {
+			if s.usable(a, cur, now) && s.spendable(a, now) && (best == nil || a.Usage.WeeklyReset.Before(best.Usage.WeeklyReset)) {
 				best = a
 			}
 		}
 		if best != nil {
-			return best, "its weekly usage resets soon"
+			return best, spendWeekly
 		}
 	}
-	return nil, ""
+	return nil, byHand
 }
 
 // usable says whether an auto switch may go to a: fresh numbers and room
@@ -294,8 +315,14 @@ func (s *switcher) usable(a, cur *Account, now time.Time) bool {
 		a.Usage.current(now).peak() < s.st.Threshold-autoHeadroom
 }
 
-// expiring says whether a week resets soon with much of it unused.
-func expiring(u Usage, now time.Time) bool {
+// spendable says whether a's week should be used up first: it resets soon
+// with much of it unused, or spend weekly already moved there and that week
+// has not reset yet. a has usage. Callers hold s.mu.
+func (s *switcher) spendable(a *Account, now time.Time) bool {
+	if a.UUID == s.st.Spending && now.Before(s.st.SpendUntil) {
+		return true
+	}
+	u := a.Usage.current(now)
 	left := u.WeeklyReset.Sub(now)
 	return !u.WeeklyReset.IsZero() && left > 0 && left <= expiringWithin && u.Weekly <= expiringMaxWeekly
 }
@@ -358,13 +385,20 @@ func (s *switcher) saveActive(active string) error {
 	return saveProfile(s.d, s.profileDir(active))
 }
 
-// switchTo signs the app in as uuid. byHand is a switch the user picked.
-func (s *switcher) switchTo(uuid string, byHand bool) error {
+// switchTo signs the app in as uuid, for the reason in cause.
+func (s *switcher) switchTo(uuid string, cause switchCause) error {
 	s.mu.Lock()
 	target := s.account(uuid)
+	from := s.active
 	s.mu.Unlock()
 	if target == nil {
 		return errors.New("unknown account")
+	}
+	switch cause {
+	case nearlyFull:
+		log.Printf("auto switch to %s: the active account is nearly full", target.label())
+	case spendWeekly:
+		log.Printf("auto switch to %s: its weekly usage resets soon", target.label())
 	}
 	if _, err := os.Stat(filepath.Join(s.profileDir(uuid), "config.json")); err != nil && uuid != s.snapshot().Active {
 		return fmt.Errorf("no saved sign-in for %s, use Add account", target.label())
@@ -387,8 +421,16 @@ func (s *switcher) switchTo(uuid string, byHand bool) error {
 	if err == nil {
 		s.mu.Lock()
 		s.st.LastSwitch = time.Now()
-		if byHand {
+		s.st.LastCause, s.st.LastFrom = cause, from
+		switch cause {
+		case byHand:
+			// The user's pick ends spending another account's week.
 			s.st.HandSwitch = s.st.LastSwitch
+			s.st.Spending, s.st.SpendUntil = "", time.Time{}
+		case spendWeekly:
+			if target.Usage != nil {
+				s.st.Spending, s.st.SpendUntil = uuid, target.Usage.WeeklyReset
+			}
 		}
 		s.active = uuid
 		s.saveState()
@@ -462,17 +504,39 @@ type snapshot struct {
 	SpendWeekly bool
 	Threshold   float64
 	Status      string
+	Note        string
 	Busy        bool
 }
 
 func (s *switcher) snapshot() snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	snap := snapshot{Active: s.active, AutoSwitch: s.st.AutoSwitch, SpendWeekly: s.st.SpendWeekly, Threshold: s.st.Threshold, Status: s.status, Busy: s.busy.Load()}
+	snap := snapshot{Active: s.active, AutoSwitch: s.st.AutoSwitch, SpendWeekly: s.st.SpendWeekly, Threshold: s.st.Threshold,
+		Status: s.status, Note: s.autoNote(time.Now()), Busy: s.busy.Load()}
 	for _, a := range s.st.Accounts {
 		snap.Accounts = append(snap.Accounts, *a)
 	}
 	return snap
+}
+
+// autoNote says why the last switch happened when the switcher made it on
+// its own, for a while afterwards. Callers hold s.mu.
+func (s *switcher) autoNote(now time.Time) string {
+	if now.Sub(s.st.LastSwitch) > noteFor {
+		return ""
+	}
+	at := resetText(s.st.LastSwitch, now)
+	switch s.st.LastCause {
+	case nearlyFull:
+		from := "the last account"
+		if a := s.account(s.st.LastFrom); a != nil {
+			from = a.label()
+		}
+		return fmt.Sprintf("Auto-switched at %s, %s was nearly full", at, from)
+	case spendWeekly:
+		return fmt.Sprintf("Auto-switched at %s to use up this account's week before it resets %s", at, resetText(s.st.SpendUntil, now))
+	}
+	return ""
 }
 
 func (s *switcher) adding() bool {
