@@ -416,6 +416,7 @@ func (s *switcher) switchTo(uuid string, cause switchCause) error {
 		}
 		n, err := syncSessions(s.d.sessionsDir(), target.UUID, target.Org)
 		log.Printf("switched to %s, %d chats imported", target.label(), n)
+		s.importProjects(target)
 		return err
 	})
 	if err == nil {
@@ -468,8 +469,20 @@ func (s *switcher) importChats() error {
 		}
 		n, err := syncSessions(s.d.sessionsDir(), a.UUID, a.Org)
 		log.Printf("%d chats imported into %s", n, a.label())
+		s.importProjects(a)
 		return err
 	})
+}
+
+// importProjects copies the projects of all accounts into a. A failure only
+// costs the project grouping, so it is logged and the switch goes on.
+func (s *switcher) importProjects(a *Account) {
+	n, err := syncSpaces(s.d.spacesDir(), a.UUID, a.Org, filepath.Join(s.dir, "spaces-seen.json"))
+	if err != nil {
+		log.Printf("projects not imported into %s: %v", a.label(), err)
+		return
+	}
+	log.Printf("%d projects imported into %s", n, a.label())
 }
 
 func (s *switcher) setAuto(on bool) {
