@@ -40,8 +40,11 @@ type State struct {
 	Accounts   []*Account `json:"accounts"`
 	AutoSwitch bool       `json:"autoSwitch"`
 	Threshold  float64    `json:"threshold"`
-	LastSwitch time.Time  `json:"lastSwitch"`
-	AppExe     string     `json:"appExe,omitempty"`
+	// SpendWeekly moves to an account whose week is about to reset mostly unused.
+	SpendWeekly bool      `json:"spendWeekly"`
+	LastSwitch  time.Time `json:"lastSwitch"`
+	HandSwitch  time.Time `json:"handSwitch"`
+	AppExe      string    `json:"appExe,omitempty"`
 }
 
 const (
@@ -50,6 +53,12 @@ const (
 	autoHeadroom = 10
 	// No second auto switch this soon after the last switch.
 	autoCooldown = 10 * time.Minute
+	// Spend weekly: an account whose week resets this soon with at most this
+	// much of it used is worth moving to before the rest is lost.
+	expiringWithin    = 24 * time.Hour
+	expiringMaxWeekly = 50
+	// A switch made by hand pauses spend weekly this long.
+	handPause = 5 * time.Hour
 
 	// The usage endpoint rate-limits per account, and Claude polls it too.
 	// The active account is checked more often once it gets close.
@@ -230,7 +239,7 @@ func (s *switcher) refresh(ctx context.Context) {
 		s.addingAt, s.status = time.Time{}, ""
 	}
 	s.saveState()
-	target := s.autoTarget(desktopRunning(), time.Now())
+	target, why := s.autoTarget(desktopRunning(), time.Now())
 	s.mu.Unlock()
 	s.onChange()
 
@@ -239,30 +248,56 @@ func (s *switcher) refresh(ctx context.Context) {
 		// A fresh sign-in: restart once so the chats of the other accounts show up.
 		s.run("Importing chats", func() error { return s.importChats() })
 	case target != nil:
-		s.run("Auto switch", func() error { return s.switchTo(target.UUID) })
+		log.Printf("auto switch to %s: %s", target.label(), why)
+		s.run("Auto switch", func() error { return s.switchTo(target.UUID, false) })
 	}
 }
 
-// autoTarget picks the account to switch to when the active one is nearly
-// full. Callers hold s.mu.
-func (s *switcher) autoTarget(running bool, now time.Time) *Account {
+// autoTarget picks the account to switch to and says why: the active one is
+// nearly full, or another one's week is about to reset mostly unused.
+// Callers hold s.mu.
+func (s *switcher) autoTarget(running bool, now time.Time) (*Account, string) {
 	cur := s.account(s.active)
-	if !s.st.AutoSwitch || !running || cur == nil || cur.Usage == nil || now.Sub(cur.Usage.CheckedAt) > activeFresh || now.Sub(s.st.LastSwitch) < autoCooldown {
-		return nil
+	if !running || cur == nil || cur.Usage == nil || now.Sub(cur.Usage.CheckedAt) > activeFresh || now.Sub(s.st.LastSwitch) < autoCooldown {
+		return nil, ""
 	}
-	if cur.Usage.current(now).peak() < s.st.Threshold {
-		return nil
-	}
-	var best *Account
-	for _, a := range s.st.Accounts {
-		if a == cur || a.Usage == nil || a.Problem != "" || now.Sub(a.Usage.CheckedAt) > idleFresh {
-			continue
+	if s.st.AutoSwitch && cur.Usage.current(now).peak() >= s.st.Threshold {
+		var best *Account
+		for _, a := range s.st.Accounts {
+			if s.usable(a, cur, now) && (best == nil || a.Usage.current(now).peak() < best.Usage.current(now).peak()) {
+				best = a
+			}
 		}
-		if p := a.Usage.current(now).peak(); p < s.st.Threshold-autoHeadroom && (best == nil || p < best.Usage.current(now).peak()) {
-			best = a
+		if best != nil {
+			return best, "nearly full"
 		}
 	}
-	return best
+	// The active account keeps going while its own week is the one running out.
+	if s.st.SpendWeekly && now.Sub(s.st.HandSwitch) >= handPause && !expiring(cur.Usage.current(now), now) {
+		var best *Account
+		for _, a := range s.st.Accounts {
+			if s.usable(a, cur, now) && expiring(a.Usage.current(now), now) && (best == nil || a.Usage.WeeklyReset.Before(best.Usage.WeeklyReset)) {
+				best = a
+			}
+		}
+		if best != nil {
+			return best, "its weekly usage resets soon"
+		}
+	}
+	return nil, ""
+}
+
+// usable says whether an auto switch may go to a: fresh numbers and room
+// well below the threshold. Callers hold s.mu.
+func (s *switcher) usable(a, cur *Account, now time.Time) bool {
+	return a != cur && a.Usage != nil && a.Problem == "" && now.Sub(a.Usage.CheckedAt) <= idleFresh &&
+		a.Usage.current(now).peak() < s.st.Threshold-autoHeadroom
+}
+
+// expiring says whether a week resets soon with much of it unused.
+func expiring(u Usage, now time.Time) bool {
+	left := u.WeeklyReset.Sub(now)
+	return !u.WeeklyReset.IsZero() && left > 0 && left <= expiringWithin && u.Weekly <= expiringMaxWeekly
 }
 
 // run does one app restart at a time and reports the outcome in the menu.
@@ -323,7 +358,8 @@ func (s *switcher) saveActive(active string) error {
 	return saveProfile(s.d, s.profileDir(active))
 }
 
-func (s *switcher) switchTo(uuid string) error {
+// switchTo signs the app in as uuid. byHand is a switch the user picked.
+func (s *switcher) switchTo(uuid string, byHand bool) error {
 	s.mu.Lock()
 	target := s.account(uuid)
 	s.mu.Unlock()
@@ -351,6 +387,9 @@ func (s *switcher) switchTo(uuid string) error {
 	if err == nil {
 		s.mu.Lock()
 		s.st.LastSwitch = time.Now()
+		if byHand {
+			s.st.HandSwitch = s.st.LastSwitch
+		}
 		s.active = uuid
 		s.saveState()
 		s.mu.Unlock()
@@ -399,6 +438,14 @@ func (s *switcher) setAuto(on bool) {
 	s.onChange()
 }
 
+func (s *switcher) setSpendWeekly(on bool) {
+	s.mu.Lock()
+	s.st.SpendWeekly = on
+	s.saveState()
+	s.mu.Unlock()
+	s.onChange()
+}
+
 func (s *switcher) setThreshold(t float64) {
 	s.mu.Lock()
 	s.st.Threshold = t
@@ -409,18 +456,19 @@ func (s *switcher) setThreshold(t float64) {
 
 // snapshot is a copy of what the menu shows.
 type snapshot struct {
-	Accounts   []Account
-	Active     string
-	AutoSwitch bool
-	Threshold  float64
-	Status     string
-	Busy       bool
+	Accounts    []Account
+	Active      string
+	AutoSwitch  bool
+	SpendWeekly bool
+	Threshold   float64
+	Status      string
+	Busy        bool
 }
 
 func (s *switcher) snapshot() snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	snap := snapshot{Active: s.active, AutoSwitch: s.st.AutoSwitch, Threshold: s.st.Threshold, Status: s.status, Busy: s.busy.Load()}
+	snap := snapshot{Active: s.active, AutoSwitch: s.st.AutoSwitch, SpendWeekly: s.st.SpendWeekly, Threshold: s.st.Threshold, Status: s.status, Busy: s.busy.Load()}
 	for _, a := range s.st.Accounts {
 		snap.Accounts = append(snap.Accounts, *a)
 	}

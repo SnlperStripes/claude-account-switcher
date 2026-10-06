@@ -178,29 +178,97 @@ func TestAutoTarget(t *testing.T) {
 	reset := &Account{UUID: "d", Usage: &Usage{Session: 100, SessionReset: now.Add(-time.Minute), Weekly: 10, CheckedAt: now}}
 	s.st.Accounts = []*Account{full, tight, roomy, reset}
 
-	if got := s.autoTarget(true, now); got != reset {
+	if got, _ := s.autoTarget(true, now); got != reset {
 		t.Fatalf("picked %v, want d (its session window already reset)", got)
 	}
-	if got := s.autoTarget(false, now); got != nil {
+	if got, _ := s.autoTarget(false, now); got != nil {
 		t.Fatal("switched while Claude is closed")
 	}
 	full.Usage.CheckedAt = now.Add(-activeFresh - time.Minute)
-	if got := s.autoTarget(true, now); got != nil {
+	if got, _ := s.autoTarget(true, now); got != nil {
 		t.Fatal("switched on stale numbers for the active account")
 	}
 	full.Usage.CheckedAt = now
 	reset.Usage.CheckedAt = now.Add(-idleFresh - time.Minute)
-	if got := s.autoTarget(true, now); got != roomy {
+	if got, _ := s.autoTarget(true, now); got != roomy {
 		t.Fatalf("picked %v, want b once d is stale", got)
 	}
 	reset.Usage.CheckedAt = now
 	s.st.LastSwitch = now.Add(-time.Minute)
-	if got := s.autoTarget(true, now); got != nil {
+	if got, _ := s.autoTarget(true, now); got != nil {
 		t.Fatal("switched again during the cooldown")
 	}
 	s.st.LastSwitch = time.Time{}
 	full.Usage.Session = 50
-	if got := s.autoTarget(true, now); got != nil {
+	if got, _ := s.autoTarget(true, now); got != nil {
 		t.Fatalf("switched below the threshold to %s", got.UUID)
+	}
+}
+
+func TestSpendWeekly(t *testing.T) {
+	now := time.Now()
+	s := &switcher{st: State{SpendWeekly: true, Threshold: 96}, active: "a"}
+	cur := &Account{UUID: "a", Usage: &Usage{Session: 30, Weekly: 40, WeeklyReset: now.Add(5 * 24 * time.Hour), CheckedAt: now}}
+	later := &Account{UUID: "b", Usage: &Usage{Weekly: 0, WeeklyReset: now.Add(20 * time.Hour), CheckedAt: now}}
+	sooner := &Account{UUID: "c", Usage: &Usage{Weekly: 10, WeeklyReset: now.Add(8 * time.Hour), CheckedAt: now}}
+	s.st.Accounts = []*Account{cur, later, sooner}
+
+	if got, _ := s.autoTarget(true, now); got != sooner {
+		t.Fatalf("picked %v, want c (its week resets first)", got)
+	}
+	sooner.Usage.Weekly = 70
+	if got, _ := s.autoTarget(true, now); got != later {
+		t.Fatalf("picked %v, want b once c has used most of its week", got)
+	}
+	later.Usage.Session = 90
+	if got, _ := s.autoTarget(true, now); got != nil {
+		t.Fatalf("switched to %s with its 5-hour limit nearly full", got.UUID)
+	}
+	later.Usage.Session = 0
+	later.Usage.WeeklyReset = now.Add(30 * time.Hour)
+	if got, _ := s.autoTarget(true, now); got != nil {
+		t.Fatal("switched for a week that resets in more than a day")
+	}
+	later.Usage.WeeklyReset = now.Add(20 * time.Hour)
+	cur.Usage.WeeklyReset = now.Add(10 * time.Hour)
+	if got, _ := s.autoTarget(true, now); got != nil {
+		t.Fatal("left an account whose own week is running out unused")
+	}
+	cur.Usage.WeeklyReset = now.Add(5 * 24 * time.Hour)
+	s.st.HandSwitch = now.Add(-time.Hour)
+	if got, _ := s.autoTarget(true, now); got != nil {
+		t.Fatal("overrode a switch made by hand an hour ago")
+	}
+	s.st.HandSwitch = time.Time{}
+	s.st.SpendWeekly = false
+	if got, _ := s.autoTarget(true, now); got != nil {
+		t.Fatal("switched with the setting off")
+	}
+
+	// Being nearly full still wins and picks the roomiest account,
+	// not the one whose week resets first.
+	s.st.SpendWeekly, s.st.AutoSwitch = true, true
+	cur.Usage.Session = 97
+	later.Usage.Weekly = 30
+	roomy := &Account{UUID: "d", Usage: &Usage{Weekly: 5, WeeklyReset: now.Add(6 * 24 * time.Hour), CheckedAt: now}}
+	s.st.Accounts = append(s.st.Accounts, roomy)
+	if got, why := s.autoTarget(true, now); got != roomy || why != "nearly full" {
+		t.Fatalf("picked %v (%s), want d because a is nearly full", got, why)
+	}
+}
+
+func TestUsageTextShowsWeeklyReset(t *testing.T) {
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.Local)
+	a := Account{Usage: &Usage{Session: 20, Weekly: 40, WeeklyReset: now.Add(2 * 24 * time.Hour)}}
+	if got, want := usageText(a, 96, now), "5h 20% · week 40%, resets Thu 12:00"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	a.Usage.Weekly = 97
+	if got, want := usageText(a, 96, now), "5h 20% · week 97% until Thu 12:00"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	a.Usage.Weekly, a.Usage.WeeklyReset = 0, now.Add(6*24*time.Hour+time.Hour)
+	if got, want := usageText(a, 96, now), "5h 20% · week 0%, resets Mon 12 Oct 13:00"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
 	}
 }
