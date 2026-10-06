@@ -16,6 +16,9 @@ carries your Claude Code chats across, and shows the live usage of every account
 **Your sign-ins never leave your machine.** Tokens stay encrypted exactly as Claude stored them,
 and the only server the switcher talks to is `api.anthropic.com`.
 
+[![Download for Windows](https://img.shields.io/badge/Download_for_Windows-.exe-2ea44f?style=for-the-badge)](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-windows-amd64.exe)
+[![Download for macOS](https://img.shields.io/badge/Download_for_macOS-universal-555555?style=for-the-badge)](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-macos)
+
 Unofficial. Not affiliated with or endorsed by Anthropic.
 
 </div>
@@ -58,10 +61,10 @@ The first real run, on Windows 11 with the Microsoft Store version of Claude, fr
 
 ## Install
 
-Grab the build for your platform from **Releases** and run it. No installer, no runtime, one file.
+Download the file for your platform and run it. No installer, no runtime, one file.
 
-- **Windows 10/11:** `claude-account-switcher-windows-amd64.exe`. Works with the Microsoft Store app and the direct download.
-- **macOS:** `claude-account-switcher-macos` (universal). The first start asks once whether it may read "Claude Safe Storage" from your keychain; that is the key Claude uses to encrypt its sign-in. Builds in CI, not yet tested on a real Mac. Reports welcome.
+- **Windows 10/11:** [`claude-account-switcher-windows-amd64.exe`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-windows-amd64.exe). Works with the Microsoft Store app and the direct download.
+- **macOS:** [`claude-account-switcher-macos`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-macos) (universal). The first start asks once whether it may read "Claude Safe Storage" from your keychain; that is the key Claude uses to encrypt its sign-in. Builds in CI, not yet tested on a real Mac. Reports welcome.
 - **Linux:** there is no official Claude desktop app, so there is nothing to switch.
 
 Then turn on **Start at login** in its menu.
@@ -89,7 +92,21 @@ From then on, click an account to switch.
 
 ## Auto-switch
 
-When it is on, all of these have to hold before the switcher acts:
+Two toggles in the menu, both off until you turn them on:
+
+- **Auto-switch** moves Claude to the account with the most room left once the active one is nearly full.
+- **Auto-switch to use up expiring weekly** moves Claude to an account whose weekly limit resets soon with most of it unused, so that usage is not lost.
+
+A switch restarts Claude. A reply that is being written at that moment stops, and you continue it in the same chat on the other account.
+
+Anthropic's terms do not forbid having more than one account. They do forbid "bypassing any of our systems or protective measures". Whether automatic switching fits how you use your accounts is your call, which is why both toggles are off until you turn them on.
+
+<details>
+<summary><b>When Auto-switch acts</b></summary>
+
+&nbsp;
+
+All of these have to hold before the switcher acts:
 
 | Rule | Why |
 | --- | --- |
@@ -99,11 +116,14 @@ When it is on, all of these have to hold before the switcher acts:
 | The last switch was more than 10 minutes ago | No ping-pong |
 | Claude is running | It never starts Claude behind your back |
 
-A switch restarts Claude. A reply that is being written at that moment stops, and you continue it in the same chat on the other account.
+</details>
 
-### Use up expiring weekly
+<details>
+<summary><b>When Auto-switch to use up expiring weekly acts</b></summary>
 
-A separate toggle, also off by default: **Auto-switch to use up expiring weekly**. Weekly usage you do not spend before the reset is gone. With this on, the switcher moves Claude to another account when all of these hold:
+&nbsp;
+
+Weekly usage you do not spend before the reset is gone. With this on, the switcher moves Claude to another account when all of these hold:
 
 | Rule | Why |
 | --- | --- |
@@ -120,9 +140,16 @@ Once it has moved to an account, it keeps using that week until the reset, even 
 
 After any automatic switch, from either toggle, the top of the menu says why for 12 hours, for example "Auto-switched at 03:12 to use up this account's week before it resets 18:00".
 
-Anthropic's terms do not forbid having more than one account. They do forbid "bypassing any of our systems or protective measures". Whether automatic switching fits how you use your accounts is your call, which is why both toggles are off until you turn them on.
+</details>
 
 ## How it works
+
+The switcher saves and restores the sign-in of each account, copies the chat list and projects between accounts, and reads usage from `api.anthropic.com`. It backs up Claude's files before every switch and leaves the rest of Claude's settings alone.
+
+<details>
+<summary><b>Which files, and what happens to them</b></summary>
+
+&nbsp;
 
 Claude keeps its sign-in in two places inside its data folder:
 
@@ -146,6 +173,8 @@ Before each switch, `config.json` and the cookie store are backed up. The last 1
 **Usage.** The saved token cache is decrypted in memory with Claude's own key (DPAPI on Windows, the keychain on macOS). The switcher then asks `api.anthropic.com` for each account's profile and usage, the same endpoints Claude and Claude Code use themselves. The active account is checked every two minutes, every minute from 85%, the others every ten. That endpoint is rate-limited per account and Claude polls it too, so after a `429` the switcher waits as long as the server asks, or backs off up to 30 minutes, and keeps showing the last numbers meanwhile. Claude's tokens last about a month, so a saved account keeps showing live usage without being signed in.
 
 **The Store app quirk.** Programs started from inside the Store version of Claude, a Claude Code terminal for example, see a redirected AppData folder. The switcher notices when it was started that way and starts itself again through Explorer, so it sees the real files and survives Claude quitting.
+
+</details>
 
 ## Your data
 
