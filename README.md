@@ -205,6 +205,35 @@ CGO_ENABLED=1 go build -o claude-account-switcher .                        # mac
 
 One dependency beyond the standard library: [`fyne.io/systray`](https://github.com/fyne-io/systray) for the tray icon, plus `golang.org/x/sys` on Windows.
 
+## FAQ
+
+**Can the Claude desktop app be signed in to two accounts at once?**
+Not on its own. The app holds one sign-in at a time, and switching means signing out and waiting for an email code. The switcher keeps a saved sign-in for every account and swaps between them in about ten seconds.
+
+**How do I switch Claude accounts without signing out?**
+Install the switcher, add each account once with **Add account…**, then pick an account from the tray menu. You never use Sign out again.
+
+**What happens to my Claude Code chats when I switch accounts?**
+They come along. The switcher copies the chat list and projects of your other accounts into the one you switch to, so the chat you were in shows up in the sidebar and you can keep going.
+
+**How do I see the usage of all my Claude accounts at once?**
+The tray menu shows 5-hour and weekly usage of every saved account, live, with when each limit resets. `claude-account-switcher -status` prints the same in a terminal.
+
+**What can I do when I hit the Claude usage limit?**
+Switch to an account that has room left, or let **Auto-switch** do it for you shortly before the limit.
+
+**Does it work with the Microsoft Store version of Claude?**
+Yes. It finds the Store app's real data folder and works with the direct download too. Windows 10 and 11.
+
+**Does it work on macOS?**
+It builds for macOS (universal) in CI, but nobody has tested it on a real Mac yet. A [test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml) helps.
+
+**Does it switch the Claude Code CLI in the terminal?**
+No. This switches the Claude desktop app, including the Claude Code chats inside it. The `claude` command in a terminal keeps its own sign-in, and the switcher does not touch it.
+
+**Do my sign-ins leave my machine?**
+No. Tokens stay encrypted exactly as Claude stored them, and the only server the switcher talks to is `api.anthropic.com`.
+
 ## Caveats
 
 This relies on how the Claude desktop app stores its files today, not on a published interface. An app update can change that. When it does, the switcher fails loudly, restores its backup and says so in the menu. It does not guess.
