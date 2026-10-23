@@ -260,6 +260,7 @@ func TestSpendWeekly(t *testing.T) {
 }
 
 func TestUsageTextShowsWeeklyReset(t *testing.T) {
+	useLanguage(t, "en")
 	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.Local)
 	a := Account{Usage: &Usage{Session: 20, Weekly: 40, WeeklyReset: now.Add(2 * 24 * time.Hour)}}
 	if got, want := usageText(a, 96, now), "5h 20% · week 40%, resets Thu 12:00"; got != want {
@@ -316,6 +317,7 @@ func TestSpendWeeklyWaitsAndComesBack(t *testing.T) {
 }
 
 func TestAutoNote(t *testing.T) {
+	useLanguage(t, "en")
 	now := time.Date(2026, 10, 7, 9, 0, 0, 0, time.Local)
 	s := &switcher{}
 	s.st.Accounts = []*Account{{UUID: "a", Name: "Pepe", Plan: "Pro"}}
