@@ -337,6 +337,20 @@ func TestAutoNote(t *testing.T) {
 	}
 }
 
+func TestAutoSwitchRejectsAccountWithRefreshFailure(t *testing.T) {
+	now := time.Now()
+	s := &switcher{st: State{Threshold: 96}}
+	current := &Account{UUID: "current"}
+	target := &Account{UUID: "target", Usage: &Usage{Session: 20, Weekly: 30, CheckedAt: now}}
+	if !s.usable(target, current, now) {
+		t.Fatal("fresh successful usage should permit the candidate")
+	}
+	target.RefreshIssue = "Unable to refresh usage"
+	if s.usable(target, current, now) {
+		t.Fatal("last-known usage from a failed refresh must not authorize an automatic switch")
+	}
+}
+
 func TestLastChatWrite(t *testing.T) {
 	root := t.TempDir()
 	if got := lastChatWrite(root); !got.IsZero() {

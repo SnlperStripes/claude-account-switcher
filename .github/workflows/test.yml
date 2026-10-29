@@ -22,3 +22,8 @@ jobs:
           go-version-file: go.mod
       - run: go vet ./...
       - run: go test ./...
+      - name: Compile native macOS view and test panel placement
+        if: runner.os == 'macOS'
+        run: |
+          xcrun swiftc -swift-version 5 -parse-as-library -O native/Panel.swift -o "$RUNNER_TEMP/switcher-panel"
+          "$RUNNER_TEMP/switcher-panel" --test-layout

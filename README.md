@@ -231,6 +231,9 @@ Prints every saved account with its usage and exits.
 
 ## Build
 
+An opt-in [native macOS account overview](native/README.md) is available as a draft
+interface, with screenshots and instructions for building its app bundle.
+
 Go 1.26 or newer.
 
 ```bash

@@ -15,13 +15,14 @@ import (
 
 // Account is a Claude account the switcher has seen signed in.
 type Account struct {
-	UUID    string `json:"uuid"`
-	Org     string `json:"org"`
-	Name    string `json:"name"`
-	Email   string `json:"email"`
-	Plan    string `json:"plan"`
-	Usage   *Usage `json:"usage,omitempty"`
-	Problem string `json:"problem,omitempty"`
+	UUID         string `json:"uuid"`
+	Org          string `json:"org"`
+	Name         string `json:"name"`
+	Email        string `json:"email"`
+	Plan         string `json:"plan"`
+	Usage        *Usage `json:"usage,omitempty"`
+	Problem      string `json:"problem,omitempty"`
+	RefreshIssue string `json:"refreshIssue,omitempty"`
 }
 
 func (a *Account) label() string {
@@ -111,6 +112,8 @@ type switcher struct {
 	// After a 429, an account is not asked again before its backoff ends.
 	backoff map[string]time.Time
 	strikes map[string]int
+	// Manual refresh makes usage due without discarding the last successful timestamp.
+	forceCheck bool
 }
 
 func newSwitcher(dir string) *switcher {
@@ -195,6 +198,8 @@ func (s *switcher) check(ctx context.Context) (string, func() error) {
 
 	s.mu.Lock()
 	s.active = active
+	force := s.forceCheck
+	s.forceCheck = false
 	if exe != "" {
 		s.st.AppExe = exe
 	}
@@ -215,7 +220,7 @@ func (s *switcher) check(ctx context.Context) (string, func() error) {
 				every = hotEvery
 			}
 		}
-		due := a.Usage == nil || now.Sub(a.Usage.CheckedAt) >= every-5*time.Second
+		due := force || a.Usage == nil || now.Sub(a.Usage.CheckedAt) >= every-5*time.Second
 		if due && now.After(s.backoff[a.UUID]) {
 			jobs = append(jobs, job{a.UUID, false})
 		}
@@ -258,11 +263,14 @@ func (s *switcher) check(ctx context.Context) (string, func() error) {
 			switch {
 			case err == nil:
 				a.Usage, a.Problem = u, ""
+				a.RefreshIssue = ""
 			case errors.Is(err, errSignedOut):
 				a.Problem = "signed out, add it again"
 			case limited != nil:
 				// Logged above; the last numbers stay until the next try.
+				a.RefreshIssue = "Rate limited; retrying automatically"
 			default:
+				a.RefreshIssue = "Unable to refresh usage"
 				log.Printf("usage %s: %v", a.label(), err)
 			}
 		}
@@ -329,7 +337,7 @@ func (s *switcher) autoTarget(running bool, lastChat, now time.Time) (*Account, 
 // usable says whether an auto switch may go to a: fresh numbers and room
 // well below the threshold. Callers hold s.mu.
 func (s *switcher) usable(a, cur *Account, now time.Time) bool {
-	return a != cur && a.Usage != nil && a.Problem == "" && now.Sub(a.Usage.CheckedAt) <= idleFresh &&
+	return a != cur && a.Usage != nil && a.Problem == "" && a.RefreshIssue == "" && now.Sub(a.Usage.CheckedAt) <= idleFresh &&
 		a.Usage.current(now).peak() < s.st.Threshold-autoHeadroom
 }
 
