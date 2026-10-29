@@ -138,7 +138,7 @@ func (s *switcher) installUpdate(ctx context.Context, v string) {
 		return
 	}
 	defer updating.Store(false)
-	s.setStatus("Downloading version " + v + "…")
+	s.setStatus(fmt.Sprintf(tr("Downloading version %s…", "正在下载版本 %s…"), v))
 	err := func() error {
 		exe, err := os.Executable()
 		if err != nil {
@@ -161,11 +161,11 @@ func (s *switcher) installUpdate(ctx context.Context, v string) {
 		return nil
 	}()
 	if err != nil {
-		s.setStatus("Update failed: " + err.Error())
+		s.setStatus(tr("Update failed: ", "更新失败：") + err.Error())
 		shellOpen(releasesURL + "/latest")
 		return
 	}
-	s.setStatus("Starting version " + v + "…")
+	s.setStatus(fmt.Sprintf(tr("Starting version %s…", "正在启动版本 %s…"), v))
 }
 
 // fetchRelease downloads this platform's file of version v and checks it
@@ -173,7 +173,7 @@ func (s *switcher) installUpdate(ctx context.Context, v string) {
 func fetchRelease(ctx context.Context, v string) ([]byte, error) {
 	asset := releaseAsset()
 	if asset == "" {
-		return nil, errors.New("no release build for this platform")
+		return nil, errors.New(tr("no release build for this platform", "当前平台没有可用的发布版本"))
 	}
 	url := releasesURL + "/download/v" + v + "/" + asset
 	bin, err := download(ctx, url, 64<<20)
@@ -187,7 +187,7 @@ func fetchRelease(ctx context.Context, v string) ([]byte, error) {
 	want, _, _ := strings.Cut(strings.TrimSpace(string(sum)), " ")
 	got := sha256.Sum256(bin)
 	if !strings.EqualFold(want, hex.EncodeToString(got[:])) {
-		return nil, errors.New("the download does not match its checksum")
+		return nil, errors.New(tr("the download does not match its checksum", "下载文件的校验值不匹配"))
 	}
 	return bin, nil
 }
@@ -204,14 +204,14 @@ func download(ctx context.Context, url string, limit int64) ([]byte, error) {
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("download: %s", res.Status)
+		return nil, fmt.Errorf(tr("download: %s", "下载失败：%s"), res.Status)
 	}
 	data, err := io.ReadAll(io.LimitReader(res.Body, limit+1))
 	if err != nil {
 		return nil, err
 	}
 	if int64(len(data)) > limit {
-		return nil, errors.New("download: file too large")
+		return nil, errors.New(tr("download: file too large", "下载失败：文件过大"))
 	}
 	return data, nil
 }
