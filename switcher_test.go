@@ -275,6 +275,66 @@ func TestUsageTextShowsWeeklyReset(t *testing.T) {
 	}
 }
 
+func TestUsageTextShowsSessionReset(t *testing.T) {
+	oldLocal := time.Local
+	time.Local = time.UTC
+	t.Cleanup(func() { time.Local = oldLocal })
+	now := time.Date(2026, 10, 25, 19, 10, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		percent float64
+		want    string
+	}{
+		{0, "5h 0%, resets 21:20 · week 0%"},
+		{1, "5h 1%, resets 21:20 · week 0%"},
+		{96, "5h 96%, resets 21:20 · week 0%"},
+		{98, "5h 98% until 21:20 · week 0%"},
+		{100, "5h 100% until 21:20 · week 0%"},
+	} {
+		a := Account{Usage: &Usage{Session: tc.percent, SessionReset: now.Add(2*time.Hour + 10*time.Minute)}}
+		if got := usageText(a, 98, now); got != tc.want {
+			t.Errorf("session %.0f: got %q, want %q", tc.percent, got, tc.want)
+		}
+	}
+	for _, tc := range []struct {
+		name  string
+		reset time.Time
+		want  string
+	}{
+		{"missing", time.Time{}, "5h 100% · week 0%"},
+		{"due", now, "5h 100% · week 0%"},
+		{"expired", now.Add(-time.Minute), "5h 0% · week 0%"},
+	} {
+		a := Account{Usage: &Usage{Session: 100, SessionReset: tc.reset}}
+		if got := usageText(a, 98, now); got != tc.want {
+			t.Errorf("%s reset: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestUsageTextResetDatesAcrossTimeZones(t *testing.T) {
+	// These dates cross both European and US clock changes. Use local calendar
+	// dates rather than adding multiples of 24h, which can change the wall time.
+	oldLocal := time.Local
+	t.Cleanup(func() { time.Local = oldLocal })
+	for _, zone := range []string{"UTC", "Europe/Berlin", "America/New_York", "Asia/Kolkata"} {
+		t.Run(zone, func(t *testing.T) {
+			loc, err := time.LoadLocation(zone)
+			if err != nil {
+				t.Fatal(err)
+			}
+			time.Local = loc
+			now := time.Date(2026, 10, 25, 0, 0, 0, 0, loc)
+			a := Account{Usage: &Usage{Session: 20, Weekly: 40,
+				SessionReset: time.Date(2026, 10, 26, 0, 0, 0, 0, loc),
+				WeeklyReset:  time.Date(2026, 11, 1, 4, 29, 0, 0, loc)}}
+			want := "5h 20%, resets Mon 00:00 · week 40%, resets Sun 1 Nov 04:29"
+			if got := usageText(a, 98, now); got != want {
+				t.Fatalf("got %q, want %q", got, want)
+			}
+		})
+	}
+}
+
 func TestSpendWeeklyWaitsAndComesBack(t *testing.T) {
 	now := time.Now()
 	idle := now.Add(-time.Hour)

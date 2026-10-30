@@ -231,8 +231,12 @@ func usageText(a Account, threshold float64, now time.Time) string {
 	}
 	u := a.Usage.current(now)
 	parts := []string{fmt.Sprintf("5h %.0f%%", u.Session), fmt.Sprintf("week %.0f%%", u.Weekly)}
-	if u.Session >= threshold && !u.SessionReset.IsZero() {
+	switch {
+	case u.SessionReset.IsZero() || !u.SessionReset.After(now):
+	case u.Session >= threshold:
 		parts[0] += " until " + resetText(u.SessionReset, now)
+	default:
+		parts[0] += ", resets " + resetText(u.SessionReset, now)
 	}
 	// The weekly reset is always shown: it decides how much of the week is left to use.
 	switch {
