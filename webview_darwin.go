@@ -1,27 +1,28 @@
 package main
 
-import webview "github.com/webview/webview_go"
+import (
+	"encoding/json"
 
-// The page's width in points; its height comes from the page itself.
-const resumeWidth = 460
+	webview "github.com/webview/webview_go"
+)
 
 // showWebDialog shows page in a WebKit window and returns what the page
-// passed to resumeDone, or nil if the window was closed. The web view package
+// passed to dialogDone, or nil if the window was closed. The web view package
 // keeps this process's main goroutine on the main thread, as Cocoa needs.
-func showWebDialog(page string, chats int) ([]bool, error) {
+func showWebDialog(win dialogWindow, page string) (json.RawMessage, error) {
 	w := webview.New(false)
 	defer w.Destroy()
-	w.SetTitle("Continue chats?")
-	w.SetSize(resumeWidth, 232+min(chats, 5)*64, webview.HintFixed)
-	var keep []bool
-	w.Bind("resumeFit", func(height int) {
-		w.SetSize(resumeWidth, height, webview.HintFixed)
+	w.SetTitle(win.Title)
+	w.SetSize(win.Width, win.Height, webview.HintFixed)
+	var answer json.RawMessage
+	w.Bind("dialogFit", func(height int) {
+		w.SetSize(win.Width, height, webview.HintFixed)
 	})
-	w.Bind("resumeDone", func(answer []bool) {
-		keep = answer
+	w.Bind("dialogDone", func(a json.RawMessage) {
+		answer = a
 		w.Terminate()
 	})
 	w.SetHtml(page)
 	w.Run()
-	return keep, nil
+	return answer, nil
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -30,12 +31,9 @@ const (
 	wsMinimizeBox, wsMaximizeBox = 0x20000, 0x10000
 )
 
-// The page's width in CSS pixels; its height comes from the page itself.
-const resumeWidth = 460
-
 // showWebDialog shows page in a WebView2 window and returns what the page
-// passed to resumeDone, or nil if the window was closed.
-func showWebDialog(page string, chats int) ([]bool, error) {
+// passed to dialogDone, or nil if the window was closed.
+func showWebDialog(win dialogWindow, page string) (json.RawMessage, error) {
 	runtime.LockOSThread()
 	dark := darkMode()
 	// The window's color until the page paints, so it never flashes white.
@@ -48,7 +46,7 @@ func showWebDialog(page string, chats int) ([]bool, error) {
 	w := webview2.NewWithOptions(webview2.WebViewOptions{
 		DataPath:      filepath.Join(home, ".claude-account-switcher", "webview"),
 		AutoFocus:     true,
-		WindowOptions: webview2.WindowOptions{Title: "Continue chats?", Width: 1, Height: 1},
+		WindowOptions: webview2.WindowOptions{Title: win.Title, Width: 1, Height: 1},
 	})
 	if w == nil {
 		return nil, errors.New("WebView2 is not available")
@@ -64,23 +62,23 @@ func showWebDialog(page string, chats int) ([]bool, error) {
 	}
 	styleWindow(hwnd, dark, bg)
 	resize := func(height int) {
-		w.SetSize(scale(resumeWidth), scale(height), webview2.HintFixed)
+		w.SetSize(scale(win.Width), scale(height), webview2.HintFixed)
 		// Only the close button: a question has nothing to minimize.
 		style, _, _ := procGetWindowLongPtr.Call(hwnd, gwlStyle)
 		procSetWindowLongPtr.Call(hwnd, gwlStyle, style&^(wsMinimizeBox|wsMaximizeBox))
 		centerWindow(hwnd)
 	}
-	resize(232 + min(chats, 5)*64)
+	resize(win.Height)
 
-	var keep []bool
-	w.Bind("resumeFit", resize)
-	w.Bind("resumeDone", func(answer []bool) {
-		keep = answer
+	var answer json.RawMessage
+	w.Bind("dialogFit", resize)
+	w.Bind("dialogDone", func(a json.RawMessage) {
+		answer = a
 		w.Terminate()
 	})
 	w.SetHtml(page)
 	w.Run()
-	return keep, nil
+	return answer, nil
 }
 
 // darkMode reports whether apps use the dark theme.

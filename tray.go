@@ -6,7 +6,6 @@ import (
 	"log"
 	"runtime"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -229,33 +228,14 @@ func (t *tray) render() {
 	}
 }
 
-// askThreshold asks for a threshold of one's own, and again after an answer
-// that is not one.
+// askThreshold asks for a threshold of one's own.
 func (t *tray) askThreshold() {
-	prompt := "Auto-switch when the active account reaches this much of its 5-hour or weekly limit, in percent."
-	answer := fmt.Sprintf("%.0f", t.s.snapshot().Threshold)
-	for {
-		text, ok := nativeAskNumber("Auto-switch at", prompt, answer)
-		if !ok {
-			// The click may have toggled the checkmark.
-			t.s.onChange()
-			return
-		}
-		if v, ok := parseThreshold(text); ok {
-			t.s.setThreshold(v)
-			return
-		}
-		prompt, answer = "Enter a whole number from 1 to 99, for example 85.", text
+	if v, ok := chooseThreshold(t.s.snapshot().Threshold); ok {
+		t.s.setThreshold(v)
+		return
 	}
-}
-
-// parseThreshold reads a typed threshold such as "85" or "85 %".
-func parseThreshold(text string) (float64, bool) {
-	n, err := strconv.Atoi(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(text), "%")))
-	if err != nil || n < 1 || n > 99 {
-		return 0, false
-	}
-	return float64(n), true
+	// The click may have toggled the checkmark.
+	t.s.onChange()
 }
 
 // customLabel names the menu item for a threshold of one's own, with the

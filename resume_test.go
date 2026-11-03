@@ -6,7 +6,7 @@ import (
 )
 
 func TestResumeHTMLInsertsRequest(t *testing.T) {
-	page, err := resumeHTML(resumeRequest{Account: "A", Wait: 30, Chats: []resumeChat{{Title: "</script><b>x", Folder: "app"}}})
+	page, err := fillPage(resumePage, resumeRequest{Account: "A", Wait: 30, Chats: []resumeChat{{Title: "</script><b>x", Folder: "app"}}})
 	if err != nil {
 		t.Fatal(err)
 	}

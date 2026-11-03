@@ -217,7 +217,7 @@ function finish(keep) {
   if (done) return;
   done = true;
   clearInterval(tick);
-  send("resumeDone", keep);
+  send("dialogDone", keep);
 }
 $("go").addEventListener("click", () => finish(boxes.map(b => b.checked)));
 $("skip").addEventListener("click", () => finish(boxes.map(() => false)));
@@ -244,7 +244,7 @@ function pause() {
 }
 
 update();
-requestAnimationFrame(() => send("resumeFit", Math.ceil(document.querySelector("main").getBoundingClientRect().height)));
+requestAnimationFrame(() => send("dialogFit", Math.ceil(document.querySelector("main").getBoundingClientRect().height)));
 </script>
 </body>
 </html>

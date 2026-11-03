@@ -19,9 +19,12 @@ import (
 const version = "0.3.6"
 
 func main() {
-	// The dialog process started by askInDialogProcess.
+	// The dialog processes started by askInDialogProcess.
 	if len(os.Args) == 2 && os.Args[1] == resumeFlag {
 		os.Exit(runResumeDialog())
+	}
+	if len(os.Args) == 2 && os.Args[1] == thresholdFlag {
+		os.Exit(runThresholdDialog())
 	}
 	status := flag.Bool("status", false, "print accounts and usage, then exit")
 	flag.Parse()

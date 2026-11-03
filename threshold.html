@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<title>Auto-switch at</title>
+<style>
+  :root {
+    --bg: #faf9f5;
+    --card: #ffffff;
+    --line: #e7e5dc;
+    --text: #1f1e1d;
+    --muted: #73726c;
+    --accent: #c96442;
+    --accent-hover: #b4583a;
+    --on-accent: #ffffff;
+    --ring-track: rgba(142, 142, 147, 0.35);
+    --red: #ff3b30;
+    --shadow: 0 1px 2px rgba(31, 30, 29, 0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #262624;
+      --card: #30302e;
+      --line: #42413d;
+      --text: #f5f4ef;
+      --muted: #a6a39a;
+      --accent: #d97757;
+      --accent-hover: #e48b6e;
+      --on-accent: #1f1e1d;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font: 14px/1.45 "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow: hidden;
+    cursor: default;
+  }
+  main { padding: 22px 24px 20px; animation: in 180ms ease-out both; }
+
+  header { display: flex; gap: 14px; align-items: flex-start; }
+  .mark {
+    flex: none; width: 42px; height: 42px; border-radius: 12px;
+    display: grid; place-items: center;
+    background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow);
+  }
+  .mark .fill { transition: stroke-dasharray 160ms ease-out; }
+  h1 { margin: 1px 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+  header p { margin: 0; color: var(--muted); font-size: 13px; }
+
+  .card {
+    margin-top: 18px; padding: 16px 16px 14px; border-radius: 12px;
+    background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow);
+    animation: in 220ms 40ms ease-out both;
+  }
+  .value { display: flex; align-items: baseline; justify-content: center; gap: 2px; }
+  .value input {
+    width: 2.3ch; padding: 0; border: 0; border-bottom: 2px solid var(--line); border-radius: 0;
+    background: none; color: var(--text); outline: none; text-align: center;
+    font: inherit; font-size: 40px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+    user-select: text; -webkit-user-select: text; cursor: text;
+    transition: border-color 140ms;
+  }
+  .value input:focus { border-bottom-color: var(--accent); }
+  .value input::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--text); }
+  .value.bad input { border-bottom-color: var(--red); }
+  .value span { font-size: 22px; font-weight: 600; color: var(--muted); }
+
+  input[type=range] { display: block; width: 100%; margin: 14px 0 4px; accent-color: var(--accent); cursor: pointer; }
+
+  .presets { display: flex; gap: 6px; margin-top: 10px; }
+  .chip {
+    flex: 1; height: 30px; border-radius: 8px; cursor: pointer;
+    font: inherit; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums;
+    background: transparent; color: var(--muted); border: 1px solid var(--line);
+    transition: background-color 140ms, border-color 140ms, color 140ms;
+  }
+  .chip:hover { color: var(--text); border-color: color-mix(in srgb, var(--muted) 45%, var(--line)); }
+  .chip.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); background: color-mix(in srgb, var(--accent) 6%, var(--card)); }
+  .chip:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 1px; }
+
+  .hint { min-height: 18px; margin: 12px 2px 0; font-size: 12px; color: var(--muted); }
+  .hint.bad { color: var(--red); }
+
+  .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  button.btn {
+    height: 34px; padding: 0 16px; border-radius: 9px; cursor: pointer;
+    font: inherit; font-size: 13.5px; font-weight: 600;
+    transition: background-color 140ms, border-color 140ms, opacity 140ms;
+  }
+  .btn:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+  .secondary { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  .secondary:hover { background: var(--card); }
+  .primary { background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent); min-width: 112px; }
+  .primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .primary:disabled { opacity: 0.45; cursor: default; background: var(--accent); }
+
+  @keyframes in { from { opacity: 0; transform: translateY(4px); } }
+  @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="mark" aria-hidden="true">
+      <svg width="26" height="26" viewBox="0 0 128 128">
+        <g transform="translate(64 64)">
+          <circle r="46" fill="none" stroke="var(--ring-track)" stroke-width="16"/>
+          <circle class="fill" id="ring" r="46" fill="none" stroke="var(--red)" stroke-width="16" pathLength="100" stroke-dasharray="96 100" stroke-linecap="round" transform="rotate(-90)"/>
+          <circle r="15" fill="var(--red)"/>
+        </g>
+      </svg>
+    </div>
+    <div>
+      <h1>Auto-switch at</h1>
+      <p>Claude moves to the account with the most room left once the active one reaches this much of its 5-hour or weekly limit.</p>
+    </div>
+  </header>
+
+  <div class="card">
+    <label class="value" id="value">
+      <input id="num" type="text" inputmode="numeric" maxlength="2" autocomplete="off" spellcheck="false" aria-label="Threshold in percent">
+      <span>%</span>
+    </label>
+    <input id="slider" type="range" min="1" max="99" step="1" aria-label="Threshold">
+    <div class="presets" id="presets"></div>
+  </div>
+  <p class="hint" id="hint"></p>
+
+  <div class="actions">
+    <button class="btn secondary" id="cancel" type="button">Cancel</button>
+    <button class="btn primary" id="set" type="button"></button>
+  </div>
+</main>
+
+<script>
+const data = /*DATA*/{"threshold":85,"presets":[90,94,96,98],"headroom":10};
+const $ = id => document.getElementById(id);
+const send = (name, arg) => (typeof window[name] === "function" ? window[name](arg) : console.log(name, arg));
+
+const num = $("num"), slider = $("slider");
+const chips = data.presets.map(p => {
+  const chip = document.createElement("button");
+  chip.className = "chip";
+  chip.type = "button";
+  chip.textContent = p + "%";
+  chip.addEventListener("click", () => { num.value = p; update(); num.focus(); num.select(); });
+  $("presets").append(chip);
+  return chip;
+});
+
+// A whole number from 1 to 99, or null.
+function current() {
+  const t = num.value.trim();
+  if (!/^\d{1,2}$/.test(t)) return null;
+  const v = Number(t);
+  return v >= 1 && v <= 99 ? v : null;
+}
+
+function update() {
+  const v = current();
+  $("value").classList.toggle("bad", v === null);
+  $("hint").classList.toggle("bad", v === null);
+  $("set").disabled = v === null;
+  $("set").textContent = v === null ? "Set" : `Set ${v}%`;
+  chips.forEach((c, i) => c.classList.toggle("on", data.presets[i] === v));
+  if (v === null) {
+    $("hint").textContent = "Enter a whole number from 1 to 99.";
+    return;
+  }
+  slider.value = v;
+  $("ring").setAttribute("stroke-dasharray", `${v} 100`);
+  const room = v - data.headroom;
+  $("hint").textContent = room > 0
+    ? `It only moves to an account below ${room}%, so it does not bounce between full ones.`
+    : `No account can be ${data.headroom} points below this, so it will not switch.`;
+}
+
+num.addEventListener("input", () => { num.value = num.value.replace(/\D/g, ""); update(); });
+slider.addEventListener("input", () => { num.value = slider.value; update(); });
+
+let done = false;
+function finish(answer) {
+  if (done) return;
+  done = true;
+  send("dialogDone", answer);
+}
+$("set").addEventListener("click", () => { const v = current(); if (v !== null) finish(String(v)); });
+$("cancel").addEventListener("click", () => finish(null));
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") finish(null);
+  if (e.key === "Enter" && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); $("set").click(); }
+  if (e.target === num && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+    e.preventDefault();
+    const v = current() ?? Number(slider.value);
+    num.value = Math.min(99, Math.max(1, v + (e.key === "ArrowUp" ? 1 : -1)));
+    update();
+  }
+});
+
+num.value = Math.round(data.threshold);
+update();
+num.focus();
+num.select();
+requestAnimationFrame(() => send("dialogFit", Math.ceil(document.querySelector("main").getBoundingClientRect().height)));
+</script>
+</body>
+</html>

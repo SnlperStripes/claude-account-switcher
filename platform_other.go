@@ -3,6 +3,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -42,4 +43,4 @@ func nativeResume(titles []string, _ time.Duration) []bool {
 
 func nativeAskNumber(string, string, string) (string, bool) { return "", false }
 
-func showWebDialog(string, int) ([]bool, error) { return nil, errUnsupported }
+func showWebDialog(dialogWindow, string) (json.RawMessage, error) { return nil, errUnsupported }
