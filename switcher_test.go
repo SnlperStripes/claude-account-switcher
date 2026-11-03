@@ -259,6 +259,28 @@ func TestSpendWeekly(t *testing.T) {
 	}
 }
 
+func TestParseThreshold(t *testing.T) {
+	for text, want := range map[string]float64{"85": 85, " 85 ": 85, "85%": 85, "85 %": 85, "1": 1, "99": 99} {
+		if got, ok := parseThreshold(text); !ok || got != want {
+			t.Errorf("parseThreshold(%q) = %v, %v, want %v", text, got, ok, want)
+		}
+	}
+	for _, text := range []string{"", "0", "100", "-5", "85.5", "abc", "%"} {
+		if got, ok := parseThreshold(text); ok {
+			t.Errorf("parseThreshold(%q) = %v, want no threshold", text, got)
+		}
+	}
+}
+
+func TestCustomLabel(t *testing.T) {
+	if got, want := customLabel(96), "Custom…"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	if got, want := customLabel(85), "Custom (85%)…"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
 func TestUsageTextShowsWeeklyReset(t *testing.T) {
 	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.Local)
 	a := Account{Usage: &Usage{Session: 20, Weekly: 40, WeeklyReset: now.Add(2 * 24 * time.Hour)}}

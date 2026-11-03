@@ -19,10 +19,14 @@ var (
 	procSetDlgItemText         = user32.NewProc("SetDlgItemTextW")
 	procSetTimer               = user32.NewProc("SetTimer")
 	procKillTimer              = user32.NewProc("KillTimer")
+	procGetDlgItemText         = user32.NewProc("GetDlgItemTextW")
 	resumeDialogProc           = windows.NewCallback(resumeDialog)
+	numberDialogProc           = windows.NewCallback(numberDialog)
 	// The state of the one resume dialog that can be open at a time.
 	resumeShown, resumeLeft int
 	resumeKeep              []bool
+	// What the one number dialog that can be open at a time ended with.
+	numberText string
 )
 
 const (
@@ -33,6 +37,21 @@ const (
 	idCancel     = 2
 	firstBox     = 100
 	maxBoxes     = 12
+	idNumber     = 200
+)
+
+const (
+	wsPopup, wsCaption, wsSysMenu   = 0x80000000, 0x00C00000, 0x00080000
+	wsChild, wsVisible, wsTabStop   = 0x40000000, 0x10000000, 0x00010000
+	wsBorder                        = 0x00800000
+	dsSetFont, dsModalFrame         = 0x40, 0x80
+	dsSetForeground, dsCenter       = 0x200, 0x800
+	wsExTopmost                     = 0x8
+	bsDefPushButton, bsAutoCheckBox = 0x1, 0x3
+	ssNoPrefix                      = 0x80
+	esAutoHScroll, esNumber         = 0x80, 0x2000
+	classButton, classEdit          = 0x80, 0x81
+	classStatic                     = 0x82
 )
 
 // nativeResume asks which of the chats titled titles should go on and
@@ -58,16 +77,8 @@ func showResumeDialog(titles []string, wait time.Duration) []bool {
 	resumeLeft = int(wait / time.Second)
 
 	const (
-		wsPopup, wsCaption, wsSysMenu   = 0x80000000, 0x00C00000, 0x00080000
-		wsChild, wsVisible, wsTabStop   = 0x40000000, 0x10000000, 0x00010000
-		dsSetFont, dsModalFrame         = 0x40, 0x80
-		dsSetForeground, dsCenter       = 0x200, 0x800
-		wsExTopmost                     = 0x8
-		bsDefPushButton, bsAutoCheckBox = 0x1, 0x3
-		ssNoPrefix                      = 0x80
-		classButton, classStatic        = 0x80, 0x82
-		width, margin, boxHeight, btnW  = 270, 7, 12, 66
-		btnH                            = 14
+		width, margin, boxHeight, btnW = 270, 7, 12, 66
+		btnH                           = 14
 	)
 	var t dialogTemplate
 	textHeight := 26
@@ -153,6 +164,75 @@ func endResumeDialog(hwnd, id uintptr) {
 		}
 	}
 	procEndDialog.Call(hwnd, id)
+}
+
+// nativeAskNumber asks for a number under prompt, with value filled in, and
+// returns what was typed. It is false when the dialog was cancelled or could
+// not open.
+func nativeAskNumber(title, prompt, value string) (string, bool) {
+	var text string
+	var ok bool
+	done := make(chan struct{})
+	go func() {
+		// As in nativeResume, the dialog's window belongs to this thread.
+		runtime.LockOSThread()
+		text, ok = showNumberDialog(title, prompt, value)
+		close(done)
+	}()
+	<-done
+	return text, ok
+}
+
+func showNumberDialog(title, prompt, value string) (string, bool) {
+	const (
+		width, margin, textHeight, btnW = 230, 7, 26, 50
+		editW, rowH, btnH               = 32, 12, 14
+	)
+	var t dialogTemplate
+	editY := margin + textHeight
+	buttonsY := editY + rowH + 10
+	height := buttonsY + btnH + margin
+	t.header(wsPopup|wsCaption|wsSysMenu|dsSetFont|dsModalFrame|dsSetForeground|dsCenter, wsExTopmost,
+		5, width, height, title, 9, "Segoe UI")
+	t.item(wsChild|wsVisible|ssNoPrefix, margin, margin, width-2*margin, textHeight, 0xFFFF, classStatic, prompt)
+	// The first control with a tab stop gets the focus, with its text selected.
+	t.item(wsChild|wsVisible|wsTabStop|wsBorder|esNumber|esAutoHScroll, margin, editY, editW, rowH, idNumber, classEdit, value)
+	t.item(wsChild|wsVisible|ssNoPrefix, margin+editW+3, editY+2, 10, rowH-2, 0xFFFF, classStatic, "%")
+	t.item(wsChild|wsVisible|wsTabStop|bsDefPushButton, width-margin-2*btnW-4, buttonsY, btnW, btnH, idOK, classButton, "Set")
+	t.item(wsChild|wsVisible|wsTabStop, width-margin-btnW, buttonsY, btnW, btnH, idCancel, classButton, "Cancel")
+
+	var inst windows.Handle
+	_ = windows.GetModuleHandleEx(0, nil, &inst)
+	tmpl := t.aligned()
+	numberText = ""
+	r, _, err := procDialogBoxIndirectParam.Call(uintptr(inst), uintptr(unsafe.Pointer(&tmpl[0])), 0, numberDialogProc, 0)
+	runtime.KeepAlive(tmpl)
+	if int(r) <= 0 {
+		log.Printf("number dialog: %v", err)
+		return "", false
+	}
+	return numberText, r == idOK
+}
+
+// numberDialog keeps the typed text when Set is clicked. Escape and the
+// close button count as Cancel.
+func numberDialog(hwnd, msg, wparam, _ uintptr) uintptr {
+	switch msg {
+	case wmInitDialog:
+		return 1
+	case wmCommand:
+		switch id := wparam & 0xFFFF; id {
+		case idOK:
+			buf := make([]uint16, 16)
+			procGetDlgItemText.Call(hwnd, idNumber, uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)))
+			numberText = windows.UTF16ToString(buf)
+			procEndDialog.Call(hwnd, id)
+		case idCancel:
+			procEndDialog.Call(hwnd, id)
+		}
+		return 1
+	}
+	return 0
 }
 
 func continueLabel() string {

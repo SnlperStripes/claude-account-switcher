@@ -21,6 +21,24 @@ const resumeScript = `on run argv
 	return out
 end run`
 
+// The title, prompt and value come in as arguments, like the resume titles.
+const numberScript = `on run argv
+	set r to display dialog (item 2 of argv) with title (item 1 of argv) default answer (item 3 of argv) buttons {"Cancel", "Set"} default button "Set" cancel button "Cancel"
+	return text returned of r
+end run`
+
+// nativeAskNumber asks for a number under prompt, with value filled in, and
+// returns what was typed. It is false when the dialog was cancelled or could
+// not open.
+func nativeAskNumber(title, prompt, value string) (string, bool) {
+	// Cancel makes osascript fail with "User canceled".
+	out, err := exec.Command("osascript", "-e", numberScript, title, prompt, value).Output()
+	if err != nil {
+		return "", false
+	}
+	return strings.TrimSpace(string(out)), true
+}
+
 // nativeResume asks which of the chats titled titles should go on and
 // returns one answer per title. After wait without an answer, or if the
 // dialog cannot open, all of them go on.

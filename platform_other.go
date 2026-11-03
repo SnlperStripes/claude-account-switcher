@@ -40,4 +40,6 @@ func nativeResume(titles []string, _ time.Duration) []bool {
 	return keep
 }
 
+func nativeAskNumber(string, string, string) (string, bool) { return "", false }
+
 func showWebDialog(string, int) ([]bool, error) { return nil, errUnsupported }

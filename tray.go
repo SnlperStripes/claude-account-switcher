@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"runtime"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +25,7 @@ type tray struct {
 	auto       *systray.MenuItem
 	spend      *systray.MenuItem
 	thresholds []*systray.MenuItem
+	custom     *systray.MenuItem
 	add        *systray.MenuItem
 	importNow  *systray.MenuItem
 	autostart  *systray.MenuItem
@@ -49,6 +52,7 @@ func (t *tray) onReady() {
 	for _, v := range thresholds {
 		t.thresholds = append(t.thresholds, limit.AddSubMenuItemCheckbox(fmt.Sprintf("%.0f%%", v), "", false))
 	}
+	t.custom = limit.AddSubMenuItemCheckbox(customLabel(defaultThreshold), "Type in your own percentage", false)
 	t.spend = systray.AddMenuItemCheckbox("Auto-switch to use up expiring weekly", "Switch to an account whose weekly limit resets within a day with half or more of it unused", false)
 	t.add = systray.AddMenuItem("Add account…", "Restart Claude on its sign-in screen, your current account is kept")
 	t.importNow = systray.AddMenuItem("Import chats from all accounts", "Restart Claude so every chat shows up in this account")
@@ -82,6 +86,11 @@ func (t *tray) onReady() {
 			}
 		}()
 	}
+	go func() {
+		for range t.custom.ClickedCh {
+			t.askThreshold()
+		}
+	}()
 	go func() {
 		for {
 			select {
@@ -209,6 +218,8 @@ func (t *tray) render() {
 	for i, item := range t.thresholds {
 		setChecked(item, thresholds[i] == snap.Threshold)
 	}
+	t.custom.SetTitle(customLabel(snap.Threshold))
+	setChecked(t.custom, !slices.Contains(thresholds, snap.Threshold))
 	for _, item := range []*systray.MenuItem{t.add, t.importNow} {
 		if snap.Busy {
 			item.Disable()
@@ -216,6 +227,44 @@ func (t *tray) render() {
 			item.Enable()
 		}
 	}
+}
+
+// askThreshold asks for a threshold of one's own, and again after an answer
+// that is not one.
+func (t *tray) askThreshold() {
+	prompt := "Auto-switch when the active account reaches this much of its 5-hour or weekly limit, in percent."
+	answer := fmt.Sprintf("%.0f", t.s.snapshot().Threshold)
+	for {
+		text, ok := nativeAskNumber("Auto-switch at", prompt, answer)
+		if !ok {
+			// The click may have toggled the checkmark.
+			t.s.onChange()
+			return
+		}
+		if v, ok := parseThreshold(text); ok {
+			t.s.setThreshold(v)
+			return
+		}
+		prompt, answer = "Enter a whole number from 1 to 99, for example 85.", text
+	}
+}
+
+// parseThreshold reads a typed threshold such as "85" or "85 %".
+func parseThreshold(text string) (float64, bool) {
+	n, err := strconv.Atoi(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(text), "%")))
+	if err != nil || n < 1 || n > 99 {
+		return 0, false
+	}
+	return float64(n), true
+}
+
+// customLabel names the menu item for a threshold of one's own, with the
+// current one when no preset matches it.
+func customLabel(threshold float64) string {
+	if slices.Contains(thresholds, threshold) {
+		return "Custom…"
+	}
+	return fmt.Sprintf("Custom (%.0f%%)…", threshold)
 }
 
 // menuTab right-aligns the usage on Windows, where a tab in a menu title
