@@ -27,6 +27,7 @@ func main() {
 		os.Exit(runThresholdDialog())
 	}
 	status := flag.Bool("status", false, "print accounts and usage, then exit")
+	flag.Bool("show-panel", false, "open the native macOS account overview on launch")
 	flag.Parse()
 
 	// The home folder, because the Store app redirects AppData for everything
@@ -58,6 +59,9 @@ func main() {
 	go removeReplaced()
 
 	log.Printf("claude-account-switcher %s, app data in %s", version, claudeDesktop().dir)
+	if runNativeUI(newSwitcher(dir), lock) {
+		return
+	}
 	t := &tray{s: newSwitcher(dir), updates: make(chan struct{}, 1)}
 	// When a newer version starts, a running switch finishes first and no new
 	// one begins before this one quits.
