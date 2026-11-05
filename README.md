@@ -8,7 +8,7 @@ English | [简体中文](README.zh-CN.md)
 [![Downloads](https://img.shields.io/github/downloads/SnlperStripes/claude-account-switcher/total)](https://github.com/SnlperStripes/claude-account-switcher/releases)
 [![Tests](https://github.com/SnlperStripes/claude-account-switcher/actions/workflows/test.yml/badge.svg)](https://github.com/SnlperStripes/claude-account-switcher/actions/workflows/test.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
-![Windows | macOS](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)
+![Windows | macOS | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 
 **Hit your limit on one Claude account, keep working on the next one. One click, no email code.**
 
@@ -20,6 +20,7 @@ and the only server they ever go to is `api.anthropic.com`.
 
 [![Download for Windows](https://img.shields.io/badge/Download_for_Windows-.exe-2ea44f?style=for-the-badge)](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-windows-amd64.exe)
 [![Download for macOS](https://img.shields.io/badge/Download_for_macOS-universal-555555?style=for-the-badge)](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-macos)
+[![Download for Linux](https://img.shields.io/badge/Download_for_Linux-x64-555555?style=for-the-badge)](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-linux-amd64)
 
 <img src="assets/demo.gif" width="720" alt="Demo: the 5-hour limit hits, another account is picked from the tray, Claude restarts on it and the same chat keeps going">
 
@@ -54,7 +55,7 @@ Three of those four steps are pure overhead, and the fourth is a guess.
 
 **Can switch on its own.** Off by default. Turn it on and the switcher moves Claude to the account with the most room left once the active one passes 96%, or 90, 94, 98 or any whole percentage you type in under Custom…. A second toggle moves it to an account whose weekly limit is about to reset mostly unused, so that usage is not lost.
 
-**Speaks Chinese.** When Windows or macOS shows Simplified Chinese first, the menu and windows are in Chinese too. See [Language](#language).
+**Speaks Chinese.** When Windows, macOS or Linux shows Simplified Chinese first, the menu and windows are in Chinese too. See [Language](#language).
 
 ## Measured
 
@@ -76,7 +77,11 @@ Download the file for your platform and run it. No installer, no runtime, one fi
   winget install SnlperStripes.ClaudeAccountSwitcher
   ```
 - **macOS:** [`claude-account-switcher-macos`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-macos) (universal). The first start asks once whether it may read "Claude Safe Storage" from your keychain; that is the key Claude uses to encrypt its sign-in. Builds in CI, not yet tested on a real Mac. Reports welcome.
-- **Linux:** there is no official Claude desktop app, so there is nothing to switch.
+- **Linux, x64:** [`claude-account-switcher-linux-amd64`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-linux-amd64). On arm64, use [`claude-account-switcher-linux-arm64`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-linux-arm64) instead. It needs the official Claude Desktop for Linux beta (Ubuntu 22.04+ or Debian 12+, installed from Anthropic's apt repository as `claude-desktop`, see [Claude's Linux guide](https://code.claude.com/docs/en/desktop-linux)). Then run `chmod +x claude-account-switcher-linux-amd64` in the folder you saved it to, and start it.
+  - The tray uses the AppIndicator (StatusNotifierItem) protocol. It works on Ubuntu's default desktop and KDE. On plain GNOME, install the "AppIndicator and KStatusNotifierItem Support" extension.
+  - The custom threshold and the window that asks which chats continue use `zenity` or `kdialog`, whichever is installed.
+  - The sign-in key is kept in the desktop keyring (GNOME Keyring or KDE Wallet). Usage needs the keyring unlocked, which it normally is after login.
+  - Builds in CI, not yet tested on a real Linux desktop. Reports welcome.
 
 Then turn on **Start at login** in its menu.
 
@@ -174,7 +179,7 @@ Right before Claude quits, the switcher reads the end of every Claude Code conve
 
 For each chat you keep checked, the switcher writes the mark Claude itself leaves when it quits during a reply (`interruptedByQuitAt`) into that chat's entry of the account you switch to, and removes the mark from the other accounts' copies, so the chat is not continued twice. Claude continues marked chats for 24 hours after the restart; a chat it cannot reach in that time simply stays where it stopped.
 
-On Windows the window is drawn with WebView2, which comes with Windows 11 and current Windows 10. Without it, a plain Windows dialog asks the same question. On macOS it uses WebKit; like the rest of the macOS build, this has not been tested on a real Mac yet.
+On Windows the window is drawn with WebView2, which comes with Windows 11 and current Windows 10. Without it, a plain Windows dialog asks the same question. On macOS it uses WebKit; like the rest of the macOS build, this has not been tested on a real Mac yet. On Linux it is a `zenity` or `kdialog` dialog.
 
 </details>
 
@@ -194,6 +199,7 @@ Claude keeps its sign-in in two places inside its data folder:
 | Windows, Microsoft Store app | `%LOCALAPPDATA%\Claude-Data\claude_<id>` since 2.42304, before that `%LOCALAPPDATA%\Packages\Claude_<id>\LocalCache\Roaming\Claude` |
 | Windows, direct download | `%APPDATA%\Claude` |
 | macOS | `~/Library/Application Support/Claude` |
+| Linux, official Claude Desktop | `~/.config/Claude` |
 
 | What | Where | What the switcher does with it |
 | --- | --- | --- |
@@ -209,7 +215,7 @@ Claude keeps its sign-in in two places inside its data folder:
 
 Before each switch, `config.json` and the cookie store are backed up. The last 10 backups are kept. If any step fails, the backup goes back and the error shows at the top of the menu.
 
-**Usage.** The saved token cache is decrypted in memory with Claude's own key (DPAPI on Windows, the keychain on macOS). The switcher then asks `api.anthropic.com` for each account's profile and usage, the same endpoints Claude and Claude Code use themselves. The active account is checked every two minutes, every minute from 85%, the others every ten. That endpoint is rate-limited per account and Claude polls it too, so after a `429` the switcher waits as long as the server asks, or backs off up to 30 minutes, and keeps showing the last numbers meanwhile. Claude's tokens last about a month, so a saved account keeps showing live usage without being signed in.
+**Usage.** The saved token cache is decrypted in memory with Claude's own key (DPAPI on Windows, the keychain on macOS, the desktop keyring on Linux). The switcher then asks `api.anthropic.com` for each account's profile and usage, the same endpoints Claude and Claude Code use themselves. The active account is checked every two minutes, every minute from 85%, the others every ten. That endpoint is rate-limited per account and Claude polls it too, so after a `429` the switcher waits as long as the server asks, or backs off up to 30 minutes, and keeps showing the last numbers meanwhile. Claude's tokens last about a month, so a saved account keeps showing live usage without being signed in.
 
 **Updates.** Once a day the switcher asks GitHub for the version number of the latest release. Nothing about you or your accounts goes along. When a newer version is out, the top of the menu says so. A click downloads it from the GitHub release, checks it against the published SHA-256, puts it in place of the running file and restarts on it. A download the switcher makes itself gets no SmartScreen or Gatekeeper warning. If that fails, the download page opens instead. Starting a newer version by hand also works: it asks the running one to quit and takes over. With winget, `winget upgrade SnlperStripes.ClaudeAccountSwitcher` does the same. To never contact GitHub, quit the switcher, add `"noUpdateCheck": true` to `state.json` and start it again.
 
@@ -229,7 +235,7 @@ Before each switch, `config.json` and the cookie store are backed up. The last 1
 
 ## Language
 
-The menu and windows follow the first display language of the system: Simplified Chinese (zh-CN, zh-SG, zh-Hans) gets Chinese, everything else English. The log stays in English.
+The menu and windows follow the first display language of the system: Simplified Chinese (zh-CN, zh-SG, zh-Hans) gets Chinese, everything else English. On Linux the language comes from the `LANGUAGE` and then `LANG` environment variables, so `LANG=zh_CN.UTF-8` gives Chinese. The log stays in English.
 
 To pick one for good, quit the switcher, add `"language": "zh-CN"` or `"language": "en"` to `state.json` in the data folder and start it again. It survives updates and the start at login.
 
@@ -249,9 +255,10 @@ Go 1.26 or newer.
 go test ./...
 go build -ldflags "-H=windowsgui -s -w" -o claude-account-switcher.exe .   # Windows
 CGO_ENABLED=1 go build -o claude-account-switcher .                        # macOS
+CGO_ENABLED=0 go build -ldflags "-s -w" -o claude-account-switcher .       # Linux
 ```
 
-Dependencies beyond the standard library: [`fyne.io/systray`](https://github.com/fyne-io/systray) for the tray icon, and for the window that asks which chats continue [`jchv/go-webview2`](https://github.com/jchv/go-webview2) on Windows and [`webview/webview_go`](https://github.com/webview/webview_go) on macOS. On Windows also `golang.org/x/sys`.
+Dependencies beyond the standard library: [`fyne.io/systray`](https://github.com/fyne-io/systray) for the tray icon, and for the window that asks which chats continue [`jchv/go-webview2`](https://github.com/jchv/go-webview2) on Windows and [`webview/webview_go`](https://github.com/webview/webview_go) on macOS. On Windows also `golang.org/x/sys`. On Linux [`godbus/dbus`](https://github.com/godbus/dbus) reads the sign-in key from the desktop keyring.
 
 ## FAQ
 
@@ -279,6 +286,9 @@ Yes. It finds the Store app's real data folder and works with the direct downloa
 **Does it work on macOS?**
 It builds for macOS (universal) in CI, but nobody has tested it on a real Mac yet. A [test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml) helps.
 
+**Does it work on Linux?**
+It builds for Linux (x64 and arm64) in CI, but nobody has tested it on a real desktop yet. It needs the official Claude Desktop for Linux beta, see [Install](#install). A [test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=linux_report.yml) helps.
+
 **Does it switch the Claude Code CLI in the terminal?**
 No. This switches the Claude desktop app, including the Claude Code chats inside it. The `claude` command in a terminal keeps its own sign-in, and the switcher does not touch it.
 
@@ -296,6 +306,7 @@ This relies on how the Claude desktop app stores its files today, not on a publi
 
 Bug reports, ideas and pull requests are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md).
 Got a Mac? A [macOS test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml) helps a lot, even if everything just worked.
+Running Linux? A [Linux test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=linux_report.yml) helps the same way.
 Found a security problem? Please report it privately, see [SECURITY.md](SECURITY.md).
 If the switcher saves you time, a star helps other people with more than one account find it.
 

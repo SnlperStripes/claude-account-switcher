@@ -8,7 +8,7 @@
 [![下载次数](https://img.shields.io/github/downloads/SnlperStripes/claude-account-switcher/total)](https://github.com/SnlperStripes/claude-account-switcher/releases)
 [![测试](https://github.com/SnlperStripes/claude-account-switcher/actions/workflows/test.yml/badge.svg)](https://github.com/SnlperStripes/claude-account-switcher/actions/workflows/test.yml)
 [![许可证：Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
-![Windows | macOS](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)
+![Windows | macOS | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 
 **一个 Claude 账号的额度用完了，就切到下一个继续工作。一键切换，无需邮箱验证码。**
 
@@ -18,6 +18,7 @@
 
 [![下载 Windows 版](https://img.shields.io/badge/下载_Windows_版-.exe-2ea44f?style=for-the-badge)](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-windows-amd64.exe)
 [![下载 macOS 版](https://img.shields.io/badge/下载_macOS_版-universal-555555?style=for-the-badge)](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-macos)
+[![下载 Linux 版](https://img.shields.io/badge/下载_Linux_版-x64-555555?style=for-the-badge)](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-linux-amd64)
 
 <img src="assets/demo.gif" width="720" alt="演示：5 小时额度用完，从托盘选择另一个账号，Claude 以该账号重启，同一个聊天继续进行">
 
@@ -52,7 +53,7 @@
 
 **可选的自动切换。** 默认关闭。开启后，当前账号的用量超过 96% 时，自动切换到剩余额度最多的账号。阈值也可选 90%、94%、98%，或在“自定义…”中输入任意整数百分比。另一个开关会切换到周额度即将重置、但大部分尚未使用的账号，避免这部分额度浪费。
 
-**中文界面。** Windows 或 macOS 的首选显示语言为简体中文时，菜单和窗口自动显示中文。详见[界面语言](#界面语言)。
+**中文界面。** Windows、macOS 或 Linux 的首选显示语言为简体中文时，菜单和窗口自动显示中文。详见[界面语言](#界面语言)。
 
 ## 实测结果
 
@@ -76,7 +77,11 @@
   ```
 
 - **macOS：** 下载 [`claude-account-switcher-macos`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-macos)，同时支持 Apple Silicon 和 Intel。首次运行会询问一次是否允许读取钥匙串中的“Claude Safe Storage”，这是 Claude 加密登录凭证所用的密钥。macOS 版已通过 CI 构建，但尚未在真实 Mac 上测试，欢迎反馈。
-- **Linux：** 没有官方的 Claude 桌面应用，因此不支持。
+- **Linux（x64）：** 下载 [`claude-account-switcher-linux-amd64`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-linux-amd64)；ARM64 机器请下载 [`claude-account-switcher-linux-arm64`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-linux-arm64)。需要先安装官方的 Claude 桌面版 Linux 测试版（Ubuntu 22.04+ 或 Debian 12+，从 Anthropic 的 apt 软件源安装，软件包名为 `claude-desktop`，参见 [Claude 的 Linux 指南](https://code.claude.com/docs/en/desktop-linux)）。然后在保存文件的目录执行 `chmod +x claude-account-switcher-linux-amd64`，再启动程序。
+  - 托盘使用 AppIndicator（StatusNotifierItem）协议。Ubuntu 默认桌面和 KDE 开箱即用；原版 GNOME 需要安装 “AppIndicator and KStatusNotifierItem Support” 扩展。
+  - 自定义阈值和询问继续哪些聊天的窗口使用 `zenity` 或 `kdialog`，安装其中之一即可。
+  - 登录密钥保存在桌面密钥环中（GNOME Keyring 或 KDE Wallet）。查询用量需要密钥环处于解锁状态，通常登录后即已解锁。
+  - 尚未在真实 Linux 桌面上测试，欢迎反馈。
 
 启动后可在菜单中开启 **开机时启动**。程序没有主窗口；Windows 用户请在任务栏右下角的托盘区域查找圆环图标，必要时展开隐藏的图标。
 
@@ -104,7 +109,7 @@
 
 ## 界面语言
 
-菜单和窗口跟随系统的首选显示语言：简体中文（zh-CN、zh-SG、zh-Hans）显示中文，其他语言显示英文。日志始终为英文。
+菜单和窗口跟随系统的首选显示语言：简体中文（zh-CN、zh-SG、zh-Hans）显示中文，其他语言显示英文。在 Linux 上依次读取环境变量 `LANGUAGE` 和 `LANG`，例如 `LANG=zh_CN.UTF-8` 即显示中文。日志始终为英文。
 
 如果想固定使用某种语言，请退出切换器，在数据文件夹的 `state.json` 中加入 `"language": "zh-CN"` 或 `"language": "en"`，再启动程序。这个设置在更新和开机启动后依然有效。
 
@@ -177,7 +182,7 @@ Claude 重新启动后，会向每个勾选的聊天发送“The app was quit wh
 
 对每个保持勾选的聊天，切换器会在目标账号的聊天条目中写入 Claude 自己在回复中途退出时留下的标记（`interruptedByQuitAt`），并从其他账号的副本中移除该标记，避免同一个聊天被继续两次。Claude 会在重启后 24 小时内继续带有标记的聊天；在此期间无法继续的聊天会停在原处。
 
-在 Windows 上，这个窗口使用 WebView2 绘制，Windows 11 和较新的 Windows 10 已自带。没有 WebView2 时，会改用普通的 Windows 对话框询问同样的问题。在 macOS 上使用 WebKit；与 macOS 版的其他部分一样，尚未在真实 Mac 上测试。
+在 Windows 上，这个窗口使用 WebView2 绘制，Windows 11 和较新的 Windows 10 已自带。没有 WebView2 时，会改用普通的 Windows 对话框询问同样的问题。在 macOS 上使用 WebKit；与 macOS 版的其他部分一样，尚未在真实 Mac 上测试。在 Linux 上则是 `zenity` 或 `kdialog` 对话框。
 
 </details>
 
@@ -195,6 +200,7 @@ Claude 的数据目录因系统和安装方式而异：
 | Windows，Microsoft Store 版 | 从 2.42304 起为 `%LOCALAPPDATA%\Claude-Data\claude_<id>`；旧版为 `%LOCALAPPDATA%\Packages\Claude_<id>\LocalCache\Roaming\Claude` |
 | Windows，直接下载安装 | `%APPDATA%\Claude` |
 | macOS | `~/Library/Application Support/Claude` |
+| Linux，官方 Claude 桌面版 | `~/.config/Claude` |
 
 | 数据 | 位置 | 切换器的处理方式 |
 | --- | --- | --- |
@@ -210,7 +216,7 @@ Claude 的数据目录因系统和安装方式而异：
 
 每次切换前会备份 `config.json` 和 Cookie 存储，保留最近 10 份。任何一步失败时都会恢复备份，并在菜单顶部显示错误。
 
-**用量。** 程序使用 Claude 自己的密钥在内存中解密已保存的 Token 缓存：Windows 使用 DPAPI，macOS 使用钥匙串。随后请求账号信息和用量接口。当前账号每两分钟查询一次，达到 85% 后每分钟一次；其他账号每十分钟一次。接口按账号限流，而 Claude 本身也会轮询，因此收到 `429` 后会按服务器要求等待，或逐步退避，最长 30 分钟。等待期间保留最近的结果。Claude 的 Token 大约可用一个月，因此已保存但未登录的账号也能持续显示实时用量。
+**用量。** 程序使用 Claude 自己的密钥在内存中解密已保存的 Token 缓存：Windows 使用 DPAPI，macOS 使用钥匙串，Linux 使用桌面密钥环。随后请求账号信息和用量接口。当前账号每两分钟查询一次，达到 85% 后每分钟一次；其他账号每十分钟一次。接口按账号限流，而 Claude 本身也会轮询，因此收到 `429` 后会按服务器要求等待，或逐步退避，最长 30 分钟。等待期间保留最近的结果。Claude 的 Token 大约可用一个月，因此已保存但未登录的账号也能持续显示实时用量。
 
 **更新。** 程序每天向 GitHub 查询一次最新版本号，不附带任何账号信息。有新版本时，菜单顶部会提示；点击后会下载文件、核对发布的 SHA-256 校验值、替换当前程序并重新启动。切换器自己下载的文件不会触发 SmartScreen 或 Gatekeeper 警告。失败时会打开下载页面。直接启动新下载的版本也可以：它会等旧版本完成正在进行的切换后接管。winget 用户可运行 `winget upgrade SnlperStripes.ClaudeAccountSwitcher`。若要关闭查询，请退出切换器，在 `state.json` 中加入 `"noUpdateCheck": true`，再启动程序。
 
@@ -245,9 +251,10 @@ go vet ./...
 go test ./...
 go build -ldflags "-H=windowsgui -s -w" -o claude-account-switcher.exe .   # Windows
 CGO_ENABLED=1 go build -o claude-account-switcher .                        # macOS
+CGO_ENABLED=0 go build -ldflags "-s -w" -o claude-account-switcher .       # Linux
 ```
 
-标准库之外的依赖：[`fyne.io/systray`](https://github.com/fyne-io/systray) 提供托盘图标；询问继续哪些聊天的窗口在 Windows 上使用 [`jchv/go-webview2`](https://github.com/jchv/go-webview2)，在 macOS 上使用 [`webview/webview_go`](https://github.com/webview/webview_go)。Windows 还使用 `golang.org/x/sys`。
+标准库之外的依赖：[`fyne.io/systray`](https://github.com/fyne-io/systray) 提供托盘图标；询问继续哪些聊天的窗口在 Windows 上使用 [`jchv/go-webview2`](https://github.com/jchv/go-webview2)，在 macOS 上使用 [`webview/webview_go`](https://github.com/webview/webview_go)。Windows 还使用 `golang.org/x/sys`。Linux 上使用 [`godbus/dbus`](https://github.com/godbus/dbus) 从桌面密钥环读取登录密钥。
 
 ## 常见问题
 
@@ -275,6 +282,9 @@ CGO_ENABLED=1 go build -o claude-account-switcher .                        # mac
 **支持 macOS 吗？**
 macOS 通用版本已通过 CI 构建，但尚未在真实 Mac 上测试。欢迎提交 [macOS 测试报告](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml)。
 
+**支持 Linux 吗？**
+在 Linux（x64 和 arm64）上可以通过 CI 构建，但尚未在真实桌面上测试。需要先安装官方的 Claude 桌面版 Linux 测试版，参见[安装](#安装)。欢迎提交 [Linux 测试报告](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=linux_report.yml)。
+
 **会切换终端中的 Claude Code CLI 账号吗？**
 不会。它切换的是 Claude 桌面应用及其中的 Claude Code 聊天；终端中的 `claude` 命令使用独立的登录状态。
 
@@ -293,6 +303,7 @@ macOS 通用版本已通过 CI 构建，但尚未在真实 Mac 上测试。欢�
 欢迎提交问题反馈、建议和 Pull Request，详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 如果你有 Mac，欢迎提交 [macOS 测试报告](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml)，运行正常的反馈也很有帮助。
+如果你使用 Linux，欢迎提交 [Linux 测试报告](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=linux_report.yml)，同样有帮助。
 
 发现安全问题时，请按 [SECURITY.md](SECURITY.md) 的说明私下报告。
 

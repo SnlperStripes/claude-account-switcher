@@ -1,10 +1,11 @@
 # Contributing
 
-Thanks for wanting to help. Bug reports, macOS test runs and pull requests are all welcome.
+Thanks for wanting to help. Bug reports, macOS and Linux test runs and pull requests are all welcome.
 
 ## The most useful things right now
 
 - **Run it on a Mac.** The macOS build passes CI but has never run on a real Mac. Open a [macOS test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml), even if everything worked.
+- **Run it on Linux.** The Linux builds pass CI but have never run on a real desktop. Open a [Linux test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=linux_report.yml), even if everything worked.
 - **Report breakage after a Claude update.** The switcher depends on how Claude stores its files. When an update changes that, a bug report with the Claude version and a log excerpt is the fastest way to a fix.
 
 ## Build and test
@@ -16,9 +17,10 @@ go vet ./...
 go test ./...
 go build -ldflags "-H=windowsgui -s -w" -o claude-account-switcher.exe .   # Windows
 CGO_ENABLED=1 go build -o claude-account-switcher .                        # macOS
+CGO_ENABLED=0 go build -ldflags "-s -w" -o claude-account-switcher .       # Linux
 ```
 
-Every pull request runs vet and tests on Windows and macOS.
+Every pull request runs vet and tests on Windows, macOS and Linux.
 
 ## Where things are
 
@@ -48,6 +50,6 @@ These keep the tool safe to run on someone's real sign-ins:
 ## Pull requests
 
 - One change per pull request. Small is easier to review.
-- Say what you tested on: Windows Store app, Windows direct download, macOS.
+- Say what you tested on: Windows Store app, Windows direct download, macOS, Linux (distribution and desktop).
 - Commit messages in plain English, imperative, like the existing history ("Poll usage less often and back off after 429").
 - By contributing you agree that your work is licensed under [Apache 2.0](LICENSE), like the rest of the project.
