@@ -156,3 +156,26 @@ func TestAutostart(t *testing.T) {
 		t.Fatalf("removing a missing entry: %v", err)
 	}
 }
+
+func TestDesktopRestartArgs(t *testing.T) {
+	procs := []desktopProc{
+		{exe: "/helper", kind: helperProc, args: []string{"helper", "--type=renderer", "--no-sandbox"}},
+		{exe: "/app", kind: mainProc, args: []string{"wrapper", "--no-sandbox", "--ozone-platform", "wayland", "--enable-features=WaylandWindowDecorations", "claude://transient", "--unknown", "secret", "--disable-gpu"}},
+	}
+	exe, args := desktopRestartCommand(procs)
+	if exe != "/app" || !slices.Equal(args, []string{"--no-sandbox", "--ozone-platform", "wayland", "--enable-features=WaylandWindowDecorations", "--disable-gpu"}) {
+		t.Fatalf("restart = %q %q", exe, args)
+	}
+}
+
+func TestDesktopRestartSkipsTransientArguments(t *testing.T) {
+	procs := []desktopProc{{exe: "/app", kind: mainProc, args: []string{"/app", "--ozone-platform", "--disable-gpu", "--", "--no-sandbox"}}}
+	_, args := desktopRestartCommand(procs)
+	if !slices.Equal(args, []string{"--disable-gpu"}) {
+		t.Fatalf("restart arguments = %q", args)
+	}
+	exe, args := desktopRestartCommand([]desktopProc{{kind: helperProc, exe: "/helper"}})
+	if exe != "" || len(args) != 0 {
+		t.Fatalf("helper selected: %q %q", exe, args)
+	}
+}
