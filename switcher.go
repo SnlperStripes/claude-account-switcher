@@ -443,6 +443,7 @@ func (s *switcher) restart(change func(active string) error) error {
 	// idle long enough would then sleep in the middle of the switch.
 	free := stayAwake()
 	s.settleSignIn()
+	restartExe, restartArgs := desktopRestartLaunch()
 	quitAt := time.Now()
 	running := runningChats(projectsDir(), quitAt)
 	if err := quitDesktop(); err != nil {
@@ -454,8 +455,11 @@ func (s *switcher) restart(change func(active string) error) error {
 	s.signedInAt = time.Time{}
 	exe := s.st.AppExe
 	s.mu.Unlock()
+	if restartExe != "" {
+		exe = restartExe
+	}
 	defer func() {
-		if err := startDesktop(exe); err != nil {
+		if err := startDesktop(exe, restartArgs...); err != nil {
 			s.setStatus(tr("Could not start Claude: ", "无法启动 Claude：") + err.Error())
 			free()
 			return

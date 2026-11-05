@@ -53,7 +53,7 @@ func waitGone(timeout time.Duration) bool {
 	return false
 }
 
-func startDesktop(string) error {
+func startDesktop(string, ...string) error {
 	return exec.Command("open", "-a", "Claude").Run()
 }
 
@@ -121,3 +121,5 @@ func systemLanguages() []string {
 	}
 	return parseAppleLanguages(string(out))
 }
+
+func desktopRestartLaunch() (string, []string) { return "", nil }
