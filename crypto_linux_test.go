@@ -7,7 +7,12 @@ import (
 	"crypto/pbkdf2"
 	"crypto/sha1"
 	"errors"
+	"os"
+	"os/exec"
 	"testing"
+	"time"
+
+	"github.com/godbus/dbus/v5"
 )
 
 // encryptForTest writes a value the way Chromium does: PKCS#7 padding,
@@ -180,5 +185,85 @@ func TestKeyringFailureRemembered(t *testing.T) {
 	_, _ = decryptValue(value)
 	if calls != 2 {
 		t.Fatalf("keyring read %d times after the retry window, want 2", calls)
+	}
+}
+
+// The private session bus exercises the Secret Service protocol without relying
+// on the user's desktop keyring.
+func TestSecretServiceUsesAvailableItems(t *testing.T) {
+	if os.Getenv("TEST_SECRET_SERVICE") != "" {
+		testSecretServiceChild(t, os.Getenv("TEST_SECRET_SERVICE"))
+		return
+	}
+	if _, err := exec.LookPath("dbus-run-session"); err != nil {
+		t.Skip("dbus-run-session unavailable")
+	}
+	for _, mode := range []string{"already-unlocked", "partial-unlock"} {
+		t.Run(mode, func(t *testing.T) {
+			cmd := exec.Command("dbus-run-session", "--", os.Args[0], "-test.run=^TestSecretServiceUsesAvailableItems$")
+			cmd.Env = append(os.Environ(), "TEST_SECRET_SERVICE="+mode)
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("private Secret Service: %v\n%s", err, out)
+			}
+		})
+	}
+}
+
+type testSecretService struct {
+	conn *dbus.Conn
+	mode string
+}
+
+func (s *testSecretService) SearchItems(map[string]string) ([]dbus.ObjectPath, []dbus.ObjectPath, *dbus.Error) {
+	if s.mode == "already-unlocked" {
+		return []dbus.ObjectPath{"/item/available"}, []dbus.ObjectPath{"/item/locked"}, nil
+	}
+	return nil, []dbus.ObjectPath{"/item/available", "/item/locked"}, nil
+}
+func (s *testSecretService) OpenSession(string, dbus.Variant) (dbus.Variant, dbus.ObjectPath, *dbus.Error) {
+	return dbus.MakeVariant(""), "/session", nil
+}
+func (s *testSecretService) Unlock([]dbus.ObjectPath) ([]dbus.ObjectPath, dbus.ObjectPath, *dbus.Error) {
+	if s.mode == "already-unlocked" {
+		return nil, "/", dbus.NewError("test.UnexpectedUnlock", nil)
+	}
+	return []dbus.ObjectPath{"/item/available"}, "/prompt", nil
+}
+func (s *testSecretService) Prompt(string) *dbus.Error {
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		_ = s.conn.Emit("/prompt", secretPromptIface+".Completed", false, dbus.MakeVariant([]dbus.ObjectPath{"/item/other"}))
+	}()
+	return nil
+}
+func (s *testSecretService) GetSecret(session dbus.ObjectPath) (secretValue, *dbus.Error) {
+	return secretValue{session, []byte{}, []byte("available-password"), "text/plain"}, nil
+}
+func (s *testSecretService) Close() *dbus.Error { return nil }
+
+func testSecretServiceChild(t *testing.T, mode string) {
+	conn, err := dbus.ConnectSessionBus()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if reply, err := conn.RequestName(secretServiceName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
+		t.Fatalf("own service: %v %v", reply, err)
+	}
+	service := &testSecretService{conn, mode}
+	for _, endpoint := range []struct {
+		path  dbus.ObjectPath
+		iface string
+	}{{secretServicePath, secretServiceIface}, {"/item/available", secretItemIface}, {"/prompt", secretPromptIface}, {"/session", secretSessionIface}} {
+		if err := conn.Export(service, endpoint.path, endpoint.iface); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := secretServicePassword()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "available-password" {
+		t.Fatalf("got %q", got)
 	}
 }
