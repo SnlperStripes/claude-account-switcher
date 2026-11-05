@@ -372,6 +372,7 @@ func (s *switcher) run(what string, f func() error) {
 // restart closes the app, runs change on its files and starts it again. If
 // change fails, the app files are put back as they were.
 func (s *switcher) restart(change func(active string) error) error {
+	restartExe, restartArgs := desktopRestartLaunch()
 	quitAt := time.Now()
 	running := runningChats(projectsDir(), quitAt)
 	if err := quitDesktop(); err != nil {
@@ -380,8 +381,11 @@ func (s *switcher) restart(change func(active string) error) error {
 	s.mu.Lock()
 	exe := s.st.AppExe
 	s.mu.Unlock()
+	if restartExe != "" {
+		exe = restartExe
+	}
 	defer func() {
-		if err := startDesktop(exe); err != nil {
+		if err := startDesktop(exe, restartArgs...); err != nil {
 			s.setStatus(tr("Could not start Claude: ", "无法启动 Claude：") + err.Error())
 		}
 	}()

@@ -23,7 +23,7 @@ func claudeDesktop() desktop {
 func desktopRunning() bool                 { return false }
 func desktopProcesses() ([]uint32, string) { return nil, "" }
 func quitDesktop() error                   { return nil }
-func startDesktop(string) error            { return errUnsupported }
+func startDesktop(string, ...string) error { return errUnsupported }
 func shellOpen(string)                     {}
 func autostartEnabled() bool               { return false }
 func setAutostart(bool) error              { return errUnsupported }
@@ -46,3 +46,5 @@ func nativeAskNumber(string, string, string) (string, bool) { return "", false }
 func showWebDialog(dialogWindow, string) (json.RawMessage, error) { return nil, errUnsupported }
 
 func systemLanguages() []string { return []string{os.Getenv("LANG")} }
+
+func desktopRestartLaunch() (string, []string) { return "", nil }
