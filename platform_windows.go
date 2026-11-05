@@ -211,7 +211,7 @@ var appIDPattern = regexp.MustCompile(`<Application\s+Id="([^"]+)"`)
 
 // startDesktop launches the app. Store (MSIX) installs cannot be started from
 // their exe, they are started through their app user model ID instead.
-func startDesktop(exe string) error {
+func startDesktop(exe string, _ ...string) error {
 	if aumid := storeAppID(exe); aumid != "" {
 		return start("explorer.exe", `shell:AppsFolder\`+aumid)
 	}
@@ -356,3 +356,5 @@ func systemLanguages() []string {
 	}
 	return langs
 }
+
+func desktopRestartLaunch() (string, []string) { return "", nil }

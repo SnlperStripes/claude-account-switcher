@@ -31,6 +31,7 @@ type desktopProc struct {
 	pid  int
 	exe  string
 	kind procKind
+	args []string
 }
 
 // configHome is $XDG_CONFIG_HOME, or ~/.config. The XDG spec ignores a
@@ -103,10 +104,52 @@ func scanDesktop() []desktopProc {
 		if err != nil {
 			continue // it exited while we looked
 		}
-		procs = append(procs, desktopProc{pid: pid, exe: exe, kind: processKind(args)})
+		procs = append(procs, desktopProc{pid: pid, exe: exe, kind: processKind(args), args: args})
 	}
 	return procs
 }
+
+// desktopRestartCommand retains only persistent, recognized launch options.
+// Positional arguments can be one-shot deep links or files and are never replayed.
+func desktopRestartCommand(procs []desktopProc) (string, []string) {
+	for _, p := range procs {
+		if p.kind != mainProc {
+			continue
+		}
+		var kept []string
+		flags := map[string]bool{"--no-sandbox": false, "--disable-gpu": false, "--disable-gpu-sandbox": false, "--disable-dev-shm-usage": false, "--ozone-platform": true, "--ozone-platform-hint": true, "--enable-features": true, "--disable-features": true, "--password-store": true, "--use-gl": true, "--class": true}
+		for i := 1; i < len(p.args); i++ {
+			arg := p.args[i]
+			if arg == "--" {
+				break
+			}
+			key, _, equals := strings.Cut(arg, "=")
+			value, ok := flags[key]
+			if !ok {
+				continue
+			}
+			if equals {
+				if value {
+					kept = append(kept, arg)
+				}
+				continue
+			}
+			if value {
+				if i+1 >= len(p.args) || strings.HasPrefix(p.args[i+1], "-") {
+					continue
+				}
+				i++
+				kept = append(kept, arg, p.args[i])
+				continue
+			}
+			kept = append(kept, arg)
+		}
+		return p.exe, kept
+	}
+	return "", nil
+}
+
+func desktopRestartLaunch() (string, []string) { return desktopRestartCommand(scanDesktop()) }
 
 // desktopProcesses returns the pids of the app's main processes and the
 // app's executable. Helpers are left out; quitDesktop ends them too.
@@ -169,8 +212,8 @@ func waitGone(timeout time.Duration) bool {
 
 // startDetached starts a program in its own session, so it keeps running
 // after this process quits.
-func startDetached(path string) error {
-	cmd := exec.Command(path)
+func startDetached(path string, args ...string) error {
+	cmd := exec.Command(path, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
 		return err
@@ -197,12 +240,12 @@ func desktopCommand(exe string) (string, error) {
 	return "", errors.New(tr("could not find the Claude app", "找不到 Claude 应用"))
 }
 
-func startDesktop(exe string) error {
+func startDesktop(exe string, args ...string) error {
 	path, err := desktopCommand(exe)
 	if err != nil {
 		return err
 	}
-	return startDetached(path)
+	return startDetached(path, args...)
 }
 
 // shellOpen opens a folder, or a web page in the default browser. xdg-open
