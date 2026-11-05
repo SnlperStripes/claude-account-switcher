@@ -22,6 +22,7 @@ type resumeRequest struct {
 	Account string       `json:"account"`
 	Wait    int          `json:"wait"`
 	Chats   []resumeChat `json:"chats"`
+	Lang    string       `json:"lang"`
 }
 
 type resumeChat struct {
@@ -33,7 +34,7 @@ type resumeChat struct {
 // answer per chat. After wait without an answer all of them go on. Without
 // a web view the platform's plain dialog asks instead.
 func chooseResume(account string, chats []cutChat, wait time.Duration) []bool {
-	req := resumeRequest{Account: account, Wait: int(wait / time.Second)}
+	req := resumeRequest{Account: account, Wait: int(wait / time.Second), Lang: language}
 	titles := make([]string, len(chats))
 	for i, c := range chats {
 		req.Chats = append(req.Chats, resumeChat{Title: c.title, Folder: c.folder})
@@ -60,12 +61,13 @@ func runResumeDialog() int {
 		fmt.Fprintln(os.Stderr, "bad request:", err)
 		return 2
 	}
+	useLanguage(req.Lang)
 	page, err := fillPage(resumePage, req)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
 	}
-	answer, err := showWebDialog(dialogWindow{Title: "Continue chats?", Width: 460, Height: 232 + min(len(req.Chats), 5)*64}, page)
+	answer, err := showWebDialog(dialogWindow{Title: tr("Continue chats?", "继续聊天？"), Width: 460, Height: 232 + min(len(req.Chats), 5)*64}, page)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1

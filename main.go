@@ -40,9 +40,11 @@ func main() {
 		log.Fatal(err)
 	}
 	setupLog(filepath.Join(dir, "switcher.log"), *status)
+	s := newSwitcher(dir)
+	language = chooseLanguage(s.st.Language, systemLanguages())
 
 	if *status {
-		printStatus(newSwitcher(dir))
+		printStatus(s)
 		return
 	}
 
@@ -57,8 +59,8 @@ func main() {
 	defer lock.Close()
 	go removeReplaced()
 
-	log.Printf("claude-account-switcher %s, app data in %s", version, claudeDesktop().dir)
-	t := &tray{s: newSwitcher(dir), updates: make(chan struct{}, 1)}
+	log.Printf("claude-account-switcher %s, app data in %s, language %s", version, claudeDesktop().dir, language)
+	t := &tray{s: s, updates: make(chan struct{}, 1)}
 	// When a newer version starts, a running switch finishes first and no new
 	// one begins before this one quits.
 	go serveInstance(lock, func() {
@@ -96,7 +98,7 @@ func printStatus(s *switcher) {
 	s.check(ctx)
 	snap := s.snapshot()
 	if len(snap.Accounts) == 0 {
-		fmt.Println("no accounts yet, sign in to Claude")
+		fmt.Println(tr("no accounts yet, sign in to Claude", "还没有账号，请先在 Claude 中登录"))
 	}
 	for _, a := range snap.Accounts {
 		mark := " "

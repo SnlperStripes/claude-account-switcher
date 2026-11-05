@@ -44,3 +44,5 @@ func nativeResume(titles []string, _ time.Duration) []bool {
 func nativeAskNumber(string, string, string) (string, bool) { return "", false }
 
 func showWebDialog(dialogWindow, string) (json.RawMessage, error) { return nil, errUnsupported }
+
+func systemLanguages() []string { return []string{os.Getenv("LANG")} }

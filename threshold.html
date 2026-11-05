@@ -34,7 +34,7 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); color: var(--text); }
   body {
-    font: 14px/1.45 "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font: 14px/1.45 "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", -apple-system, BlinkMacSystemFont, "PingFang SC", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     user-select: none;
     -webkit-user-select: none;
@@ -117,30 +117,37 @@
       </svg>
     </div>
     <div>
-      <h1>Auto-switch at</h1>
-      <p>Claude moves to the account with the most room left once the active one reaches this much of its 5-hour or weekly limit.</p>
+      <h1 data-zh="自动切换阈值">Auto-switch at</h1>
+      <p data-zh="当前账号的 5 小时或每周额度用到这个百分比时，Claude 会切换到剩余额度最多的账号。">Claude moves to the account with the most room left once the active one reaches this much of its 5-hour or weekly limit.</p>
     </div>
   </header>
 
   <div class="card">
     <label class="value" id="value">
-      <input id="num" type="text" inputmode="numeric" maxlength="2" autocomplete="off" spellcheck="false" aria-label="Threshold in percent">
+      <input id="num" type="text" inputmode="numeric" maxlength="2" autocomplete="off" spellcheck="false" aria-label="Threshold in percent" data-zh-label="阈值百分比">
       <span>%</span>
     </label>
-    <input id="slider" type="range" min="1" max="99" step="1" aria-label="Threshold">
+    <input id="slider" type="range" min="1" max="99" step="1" aria-label="Threshold" data-zh-label="阈值">
     <div class="presets" id="presets"></div>
   </div>
   <p class="hint" id="hint"></p>
 
   <div class="actions">
-    <button class="btn secondary" id="cancel" type="button">Cancel</button>
+    <button class="btn secondary" id="cancel" type="button" data-zh="取消">Cancel</button>
     <button class="btn primary" id="set" type="button"></button>
   </div>
 </main>
 
 <script>
-const data = /*DATA*/{"threshold":85,"presets":[90,94,96,98],"headroom":10};
+const data = /*DATA*/{"threshold":85,"presets":[90,94,96,98],"headroom":10,"lang":"en"};
 const $ = id => document.getElementById(id);
+const zh = data.lang === "zh-CN";
+const t = (en, cn) => (zh ? cn : en);
+if (zh) {
+  document.documentElement.lang = "zh-CN";
+  document.querySelectorAll("[data-zh]").forEach(el => { el.textContent = el.dataset.zh; });
+  document.querySelectorAll("[data-zh-label]").forEach(el => { el.setAttribute("aria-label", el.dataset.zhLabel); });
+}
 const send = (name, arg) => (typeof window[name] === "function" ? window[name](arg) : console.log(name, arg));
 
 const num = $("num"), slider = $("slider");
@@ -156,9 +163,9 @@ const chips = data.presets.map(p => {
 
 // A whole number from 1 to 99, or null.
 function current() {
-  const t = num.value.trim();
-  if (!/^\d{1,2}$/.test(t)) return null;
-  const v = Number(t);
+  const s = num.value.trim();
+  if (!/^\d{1,2}$/.test(s)) return null;
+  const v = Number(s);
   return v >= 1 && v <= 99 ? v : null;
 }
 
@@ -167,18 +174,18 @@ function update() {
   $("value").classList.toggle("bad", v === null);
   $("hint").classList.toggle("bad", v === null);
   $("set").disabled = v === null;
-  $("set").textContent = v === null ? "Set" : `Set ${v}%`;
+  $("set").textContent = v === null ? t("Set", "设置") : t(`Set ${v}%`, `设为 ${v}%`);
   chips.forEach((c, i) => c.classList.toggle("on", data.presets[i] === v));
   if (v === null) {
-    $("hint").textContent = "Enter a whole number from 1 to 99.";
+    $("hint").textContent = t("Enter a whole number from 1 to 99.", "请输入 1 到 99 之间的整数。");
     return;
   }
   slider.value = v;
   $("ring").setAttribute("stroke-dasharray", `${v} 100`);
   const room = v - data.headroom;
   $("hint").textContent = room > 0
-    ? `It only moves to an account below ${room}%, so it does not bounce between full ones.`
-    : `No account can be ${data.headroom} points below this, so it will not switch.`;
+    ? t(`It only moves to an account below ${room}%, so it does not bounce between full ones.`, `只会切换到用量低于 ${room}% 的账号，避免在快满的账号之间来回切换。`)
+    : t(`No account can be ${data.headroom} points below this, so it will not switch.`, `没有账号能比这个值低 ${data.headroom} 个百分点，因此不会切换。`);
 }
 
 num.addEventListener("input", () => { num.value = num.value.replace(/\D/g, ""); update(); });

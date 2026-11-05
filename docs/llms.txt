@@ -10,6 +10,7 @@ It switches the Claude desktop app (including the Microsoft Store version on Win
 
 - [README](https://github.com/SnlperStripes/claude-account-switcher#readme): what it does, install, first run, auto-switch rules, which files it touches
 - [FAQ](https://github.com/SnlperStripes/claude-account-switcher#faq): common questions in short form
+- [README in Simplified Chinese](https://github.com/SnlperStripes/claude-account-switcher/blob/main/README.zh-CN.md): 简体中文说明
 - [Releases](https://github.com/SnlperStripes/claude-account-switcher/releases/latest): Windows .exe and macOS universal binary, each with a .sha256
 
 ## Facts
@@ -20,4 +21,5 @@ It switches the Claude desktop app (including the Microsoft Store version on Win
 - Tokens stay encrypted as Claude stored them and are only sent to api.anthropic.com; the only other request is an optional daily GitHub check for a new version
 - Optional auto-switch to the account with the most room left at 96% (or 90, 94, 98, or a custom percentage)
 - After a switch, asks which Claude Code chats that were mid-reply should continue, and Claude picks them up on the new account
+- Menu and windows in English or Simplified Chinese, following the system display language
 - Command line: `claude-account-switcher -status` prints every account's usage

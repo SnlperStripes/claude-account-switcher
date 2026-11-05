@@ -151,7 +151,7 @@ func quitDesktop() error {
 		log.Printf("Claude did not close on request, ended it after %s", time.Since(began).Round(100*time.Millisecond))
 		return nil
 	}
-	return errors.New("Claude did not quit")
+	return errors.New(tr("Claude did not quit", "Claude 没有退出"))
 }
 
 var (
@@ -265,8 +265,8 @@ func launch(exe string) error { return start(exe) }
 // askToQuitOld tells the user to quit a switcher from before 0.3.3, which
 // holds the instance port without answering hello.
 func askToQuitOld() {
-	title, _ := windows.UTF16PtrFromString("Claude Account Switcher")
-	text, _ := windows.UTF16PtrFromString("An older Claude Account Switcher is still running. Choose Quit in its tray menu, then start this one again.")
+	title, _ := windows.UTF16PtrFromString(appName())
+	text, _ := windows.UTF16PtrFromString(tr("An older Claude Account Switcher is still running. Choose Quit in its tray menu, then start this one again.", "旧版 Claude 账号切换器仍在运行。请在它的托盘菜单中选择“Quit”，然后重新启动此版本。"))
 	windows.MessageBox(0, text, title, windows.MB_OK|windows.MB_ICONINFORMATION)
 }
 
@@ -345,4 +345,14 @@ func start(name string, args ...string) error {
 	}
 	go cmd.Wait()
 	return nil
+}
+
+// systemLanguages lists the user's display languages, preferred first, such
+// as "zh-CN".
+func systemLanguages() []string {
+	langs, err := windows.GetUserPreferredUILanguages(windows.MUI_LANGUAGE_NAME)
+	if err != nil {
+		log.Printf("display languages: %v", err)
+	}
+	return langs
 }
