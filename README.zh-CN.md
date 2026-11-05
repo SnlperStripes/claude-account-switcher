@@ -81,7 +81,7 @@
   - 托盘使用 AppIndicator（StatusNotifierItem）协议。Ubuntu 默认桌面和 KDE 开箱即用；原版 GNOME 需要安装 “AppIndicator and KStatusNotifierItem Support” 扩展。
   - 自定义阈值和询问继续哪些聊天的窗口使用 `zenity` 或 `kdialog`，安装其中之一即可。
   - 登录密钥保存在桌面密钥环中（GNOME Keyring 或 KDE Wallet）。查询用量需要密钥环处于解锁状态，通常登录后即已解锁。
-  - 尚未在真实 Linux 桌面上测试，欢迎反馈。
+  - 已确认可在 Linux 上运行，欢迎反馈其他环境的使用情况。
 
 启动后可在菜单中开启 **开机时启动**。程序没有主窗口；Windows 用户请在任务栏右下角的托盘区域查找圆环图标，必要时展开隐藏的图标。
 
@@ -283,7 +283,7 @@ CGO_ENABLED=0 go build -ldflags "-s -w" -o claude-account-switcher .       # Lin
 macOS 通用版本已通过 CI 构建，但尚未在真实 Mac 上测试。欢迎提交 [macOS 测试报告](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml)。
 
 **支持 Linux 吗？**
-在 Linux（x64 和 arm64）上可以通过 CI 构建，但尚未在真实桌面上测试。需要先安装官方的 Claude 桌面版 Linux 测试版，参见[安装](#安装)。欢迎提交 [Linux 测试报告](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=linux_report.yml)。
+已确认可在 Linux 上运行。CI 会构建 Linux x64 和 arm64 版本。需要先安装官方的 Claude 桌面版 Linux 测试版，参见[安装](#安装)。欢迎提交 [Linux 测试报告](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=linux_report.yml)。
 
 **会切换终端中的 Claude Code CLI 账号吗？**
 不会。它切换的是 Claude 桌面应用及其中的 Claude Code 聊天；终端中的 `claude` 命令使用独立的登录状态。
