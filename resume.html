@@ -34,7 +34,7 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); color: var(--text); }
   body {
-    font: 14px/1.45 "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font: 14px/1.45 "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", -apple-system, BlinkMacSystemFont, "PingFang SC", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     user-select: none;
     -webkit-user-select: none;
@@ -135,7 +135,7 @@
       </svg>
     </div>
     <div>
-      <h1>Continue your chats?</h1>
+      <h1 data-zh="继续你的聊天？">Continue your chats?</h1>
       <p id="lead"></p>
     </div>
   </header>
@@ -152,7 +152,7 @@
       <span class="left" id="left"></span>
     </div>
     <div class="actions">
-      <button class="btn secondary" id="skip" type="button">Don't continue</button>
+      <button class="btn secondary" id="skip" type="button" data-zh="不继续">Don't continue</button>
       <button class="btn primary" id="go" type="button"></button>
     </div>
   </footer>
@@ -170,18 +170,27 @@
 </template>
 
 <script>
-const data = /*DATA*/{"account":"Senior Claus (Pro)","wait":30,"chats":[{"title":"Stripe-Zahlung und Validierung","folder":"Trilluminati"},{"title":"Fix the login bug & add tests","folder":"ClaudeAccountSwitcher"}]};
+const data = /*DATA*/{"account":"Senior Claus (Pro)","wait":30,"chats":[{"title":"Stripe-Zahlung und Validierung","folder":"Trilluminati"},{"title":"Fix the login bug & add tests","folder":"ClaudeAccountSwitcher"}],"lang":"en"};
 const $ = id => document.getElementById(id);
+const zh = data.lang === "zh-CN";
+const t = (en, cn) => (zh ? cn : en);
+if (zh) {
+  document.documentElement.lang = "zh-CN";
+  document.querySelectorAll("[data-zh]").forEach(el => { el.textContent = el.dataset.zh; });
+  document.querySelectorAll("[data-zh-label]").forEach(el => { el.setAttribute("aria-label", el.dataset.zhLabel); });
+}
 const send = (name, arg) => (typeof window[name] === "function" ? window[name](arg) : console.log(name, arg));
 
 const lead = $("lead");
-lead.append(data.account ? "These chats were working when Claude closed to switch to " : "These chats were working when Claude closed. ");
+lead.append(data.account
+  ? t("These chats were working when Claude closed to switch to ", "Claude 为切换到 ")
+  : t("These chats were working when Claude closed. ", "Claude 关闭时这些聊天正在进行中。"));
 if (data.account) {
   const b = document.createElement("b");
   b.textContent = data.account;
-  lead.append(b, ". ");
+  lead.append(b, t(". ", " 而关闭时，这些聊天正在进行中。"));
 }
-lead.append("Checked chats pick up where they left off.");
+lead.append(t("Checked chats pick up where they left off.", "勾选的聊天会从中断处继续。"));
 
 const boxes = data.chats.map((chat, i) => {
   const row = $("row").content.firstElementChild.cloneNode(true);
@@ -199,9 +208,9 @@ const boxes = data.chats.map((chat, i) => {
 
 function update() {
   const n = boxes.filter(b => b.checked).length;
-  $("count").textContent = `${n} of ${boxes.length} selected`;
-  $("toggle").textContent = n === boxes.length ? "Select none" : "Select all";
-  $("go").textContent = n === 0 ? "Continue" : n === 1 ? "Continue 1 chat" : `Continue ${n} chats`;
+  $("count").textContent = t(`${n} of ${boxes.length} selected`, `已选 ${n} / ${boxes.length}`);
+  $("toggle").textContent = n === boxes.length ? t("Select none", "全不选") : t("Select all", "全选");
+  $("go").textContent = n === 0 ? t("Continue", "继续") : n === 1 ? t("Continue 1 chat", "继续 1 个聊天") : t(`Continue ${n} chats`, `继续 ${n} 个聊天`);
   $("go").disabled = n === 0;
 }
 
@@ -230,17 +239,17 @@ const ends = Date.now() + data.wait * 1000;
 const tick = setInterval(() => {
   const ms = Math.max(0, ends - Date.now());
   $("fill").style.width = (ms / (data.wait * 1000)) * 100 + "%";
-  $("left").textContent = `Continuing in ${Math.ceil(ms / 1000)} s`;
+  $("left").textContent = t(`Continuing in ${Math.ceil(ms / 1000)} s`, `${Math.ceil(ms / 1000)} 秒后继续`);
   if (ms === 0) finish(boxes.map(b => b.checked));
 }, 100);
-$("left").textContent = `Continuing in ${data.wait} s`;
+$("left").textContent = t(`Continuing in ${data.wait} s`, `${data.wait} 秒后继续`);
 
 // Someone choosing gets all the time they need.
 function pause() {
   if ($("timer").classList.contains("paused")) return;
   clearInterval(tick);
   $("timer").classList.add("paused");
-  $("left").textContent = "Waiting for you";
+  $("left").textContent = t("Waiting for you", "等你选择");
 }
 
 update();

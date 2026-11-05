@@ -1,5 +1,7 @@
 <div align="center">
 
+English | [简体中文](README.zh-CN.md)
+
 <img src="assets/banner.svg" width="880" alt="Claude Account Switcher: switch the Claude desktop app between accounts. No email code, your chats come along.">
 
 [![Latest release](https://img.shields.io/github/v/release/SnlperStripes/claude-account-switcher)](https://github.com/SnlperStripes/claude-account-switcher/releases/latest)
@@ -51,6 +53,8 @@ Three of those four steps are pure overhead, and the fourth is a guess.
 **Shows usage for all accounts at once.** 5-hour and weekly usage for every saved account, live, with when each limit resets. A future 5-hour reset is shown even below the switch threshold, for example `5h 20%, resets 21:20`. At or above the threshold it reads `5h 98% until 21:20`. Times use a 24-hour clock in your local timezone. The tray icon is a ring that fills with the active account's 5-hour usage: green, orange from 75%, red at your switch threshold.
 
 **Can switch on its own.** Off by default. Turn it on and the switcher moves Claude to the account with the most room left once the active one passes 96%, or 90, 94, 98 or any whole percentage you type in under Custom…. A second toggle moves it to an account whose weekly limit is about to reset mostly unused, so that usage is not lost.
+
+**Speaks Chinese.** When Windows or macOS shows Simplified Chinese first, the menu and windows are in Chinese too. See [Language](#language).
 
 ## Measured
 
@@ -222,6 +226,12 @@ Before each switch, `config.json` and the cookie store are backed up. The last 1
 | Network | `api.anthropic.com` for profiles and usage. `api.github.com` once a day for the latest version number, off with `"noUpdateCheck": true` in `state.json`. `github.com` only when you click to update |
 | Remove an account | Quit the switcher, delete its folder under `accounts/` and its entry in `state.json` |
 | Uninstall | Turn off **Start at login**, quit, delete the binary and the data folder |
+
+## Language
+
+The menu and windows follow the first display language of the system: Simplified Chinese (zh-CN, zh-SG, zh-Hans) gets Chinese, everything else English. The log stays in English.
+
+To pick one for good, quit the switcher, add `"language": "zh-CN"` or `"language": "en"` to `state.json` in the data folder and start it again. It survives updates and the start at login.
 
 ## Command line
 

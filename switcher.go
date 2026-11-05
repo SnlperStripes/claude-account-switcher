@@ -56,6 +56,8 @@ type State struct {
 	NoUpdateCheck bool      `json:"noUpdateCheck,omitempty"`
 	UpdateChecked time.Time `json:"updateChecked,omitempty"`
 	LatestVersion string    `json:"latestVersion,omitempty"`
+	// Language is set by hand, "en" or "zh-CN", to override the system's.
+	Language string `json:"language,omitempty"`
 }
 
 // switchCause says why a switch happened.
@@ -68,6 +70,8 @@ const (
 )
 
 const (
+	// signedOut is kept in state.json as an account's problem and translated for the menu.
+	signedOut        = "signed out, add it again"
 	defaultThreshold = 96
 	// An auto switch only goes to an account with this much room below the threshold.
 	autoHeadroom = 10
@@ -259,7 +263,7 @@ func (s *switcher) check(ctx context.Context) (string, func() error) {
 			case err == nil:
 				a.Usage, a.Problem = u, ""
 			case errors.Is(err, errSignedOut):
-				a.Problem = "signed out, add it again"
+				a.Problem = signedOut
 			case limited != nil:
 				// Logged above; the last numbers stay until the next try.
 			default:
@@ -285,9 +289,9 @@ func (s *switcher) check(ctx context.Context) (string, func() error) {
 	switch {
 	case added && adding:
 		// A fresh sign-in: restart once so the chats of the other accounts show up.
-		return "Importing chats", s.importChats
+		return tr("Importing chats", "导入聊天"), s.importChats
 	case target != nil:
-		return "Auto switch", func() error { return s.switchTo(target.UUID, cause) }
+		return tr("Auto switch", "自动切换"), func() error { return s.switchTo(target.UUID, cause) }
 	}
 	return "", nil
 }
@@ -353,7 +357,7 @@ func (s *switcher) run(what string, f func() error) {
 	err := f()
 	s.busy.Store(false)
 	if err != nil {
-		s.setStatus(fmt.Sprintf("%s failed: %v", what, err))
+		s.setStatus(fmt.Sprintf(tr("%s failed: %v", "%s失败：%v"), what, err))
 		return
 	}
 	s.mu.Lock()
@@ -378,12 +382,12 @@ func (s *switcher) restart(change func(active string) error) error {
 	s.mu.Unlock()
 	defer func() {
 		if err := startDesktop(exe); err != nil {
-			s.setStatus("Could not start Claude: " + err.Error())
+			s.setStatus(tr("Could not start Claude: ", "无法启动 Claude：") + err.Error())
 		}
 	}()
 	bk, err := backup(s.app(), s.backupsDir())
 	if err != nil {
-		return fmt.Errorf("backup: %w", err)
+		return fmt.Errorf(tr("backup: %w", "备份：%w"), err)
 	}
 	active, err := s.app().activeAccount()
 	if err == nil {
@@ -442,7 +446,7 @@ func (s *switcher) switchTo(uuid string, cause switchCause) error {
 	from := s.active
 	s.mu.Unlock()
 	if target == nil {
-		return errors.New("unknown account")
+		return errors.New(tr("unknown account", "未知账号"))
 	}
 	switch cause {
 	case nearlyFull:
@@ -451,18 +455,18 @@ func (s *switcher) switchTo(uuid string, cause switchCause) error {
 		log.Printf("auto switch to %s: its weekly usage resets soon", target.label())
 	}
 	if _, err := os.Stat(filepath.Join(s.profileDir(uuid), "config.json")); err != nil && uuid != s.snapshot().Active {
-		return fmt.Errorf("no saved sign-in for %s, use Add account", target.label())
+		return fmt.Errorf(tr("no saved sign-in for %s, use Add account", "没有 %s 的已保存登录，请使用“添加账号”"), target.label())
 	}
-	s.setStatus("Switching to " + target.label() + "…")
+	s.setStatus(fmt.Sprintf(tr("Switching to %s…", "正在切换到 %s…"), target.label()))
 	err := s.restart(func(active string) error {
 		if active == uuid {
 			return nil
 		}
 		if err := s.saveActive(active); err != nil {
-			return fmt.Errorf("save current sign-in: %w", err)
+			return fmt.Errorf(tr("save current sign-in: %w", "保存当前登录：%w"), err)
 		}
 		if err := restoreProfile(s.app(), s.profileDir(uuid)); err != nil {
-			return fmt.Errorf("restore sign-in: %w", err)
+			return fmt.Errorf(tr("restore sign-in: %w", "恢复登录：%w"), err)
 		}
 		n, err := syncSessions(s.app().sessionsDir(), target.UUID, target.Org)
 		log.Printf("switched to %s, %d chats imported", target.label(), n)
@@ -492,7 +496,7 @@ func (s *switcher) switchTo(uuid string, cause switchCause) error {
 
 // addAccount keeps the current sign-in and opens the app on its login screen.
 func (s *switcher) addAccount() error {
-	s.setStatus("Sign in with the other account in Claude")
+	s.setStatus(tr("Sign in with the other account in Claude", "请在 Claude 中登录另一个账号"))
 	err := s.restart(func(active string) error {
 		if err := s.saveActive(active); err != nil {
 			return err
@@ -509,13 +513,13 @@ func (s *switcher) addAccount() error {
 
 // importChats makes the chats of all accounts visible in the signed-in one.
 func (s *switcher) importChats() error {
-	s.setStatus("Importing chats…")
+	s.setStatus(tr("Importing chats…", "正在导入聊天…"))
 	return s.restart(func(active string) error {
 		s.mu.Lock()
 		a := s.account(active)
 		s.mu.Unlock()
 		if a == nil {
-			return errors.New("no signed-in account")
+			return errors.New(tr("no signed-in account", "没有已登录的账号"))
 		}
 		n, err := syncSessions(s.app().sessionsDir(), a.UUID, a.Org)
 		log.Printf("%d chats imported into %s", n, a.label())
@@ -596,13 +600,13 @@ func (s *switcher) autoNote(now time.Time) string {
 	at := resetText(s.st.LastSwitch, now)
 	switch s.st.LastCause {
 	case nearlyFull:
-		from := "the last account"
+		from := tr("the last account", "上一个账号")
 		if a := s.account(s.st.LastFrom); a != nil {
 			from = a.label()
 		}
-		return fmt.Sprintf("Auto-switched at %s, %s was nearly full", at, from)
+		return fmt.Sprintf(tr("Auto-switched at %s, %s was nearly full", "已于 %s 自动切换，%s 的额度快用完了"), at, from)
 	case spendWeekly:
-		return fmt.Sprintf("Auto-switched at %s to use up this account's week before it resets %s", at, resetText(s.st.SpendUntil, now))
+		return fmt.Sprintf(tr("Auto-switched at %s to use up this account's week before it resets %s", "已于 %s 自动切换，在 %s 重置前用掉此账号的周额度"), at, resetText(s.st.SpendUntil, now))
 	}
 	return ""
 }

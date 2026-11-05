@@ -138,7 +138,7 @@ func (s *switcher) installUpdate(ctx context.Context, v string) {
 		return
 	}
 	defer updating.Store(false)
-	s.setStatus("Downloading version " + v + "…")
+	s.setStatus(fmt.Sprintf(tr("Downloading version %s…", "正在下载版本 %s…"), v))
 	err := func() error {
 		exe, err := os.Executable()
 		if err != nil {
@@ -161,11 +161,11 @@ func (s *switcher) installUpdate(ctx context.Context, v string) {
 		return nil
 	}()
 	if err != nil {
-		s.setStatus("Update failed: " + err.Error())
+		s.setStatus(tr("Update failed: ", "更新失败：") + err.Error())
 		shellOpen(releasesURL + "/latest")
 		return
 	}
-	s.setStatus("Starting version " + v + "…")
+	s.setStatus(fmt.Sprintf(tr("Starting version %s…", "正在启动版本 %s…"), v))
 }
 
 // fetchRelease downloads this platform's file of version v and checks it
@@ -187,7 +187,7 @@ func fetchRelease(ctx context.Context, v string) ([]byte, error) {
 	want, _, _ := strings.Cut(strings.TrimSpace(string(sum)), " ")
 	got := sha256.Sum256(bin)
 	if !strings.EqualFold(want, hex.EncodeToString(got[:])) {
-		return nil, errors.New("the download does not match its checksum")
+		return nil, errors.New(tr("the download does not match its checksum", "下载的文件与校验值不符"))
 	}
 	return bin, nil
 }

@@ -13,7 +13,7 @@ func TestResumeHTMLInsertsRequest(t *testing.T) {
 	if strings.Contains(page, "Stripe-Zahlung") {
 		t.Fatal("sample data left in the page")
 	}
-	if !strings.Contains(page, `const data = {"account":"A","wait":30,"chats":[{"title":`) || !strings.Contains(page, `"folder":"app"}]};`) {
+	if !strings.Contains(page, `const data = {"account":"A","wait":30,"chats":[{"title":`) || !strings.Contains(page, `"folder":"app"}],"lang":""};`) {
 		t.Fatal("request not inserted in place of the sample data")
 	}
 	if strings.Contains(page, "</script><b>x") {

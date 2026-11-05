@@ -40,7 +40,7 @@ func quitDesktop() error {
 	if waitGone(10 * time.Second) {
 		return nil
 	}
-	return errors.New("Claude did not quit")
+	return errors.New(tr("Claude did not quit", "Claude 没有退出"))
 }
 
 func waitGone(timeout time.Duration) bool {
@@ -111,3 +111,13 @@ func setAutostart(on bool) error {
 }
 
 func relaunchOutsideDesktop(string) bool { return false }
+
+// systemLanguages lists the user's languages, preferred first, such as
+// "zh-Hans-CN". A login item gets no LANG, so they come from the defaults.
+func systemLanguages() []string {
+	out, err := exec.Command("defaults", "read", "-g", "AppleLanguages").Output()
+	if err != nil {
+		return nil
+	}
+	return parseAppleLanguages(string(out))
+}
