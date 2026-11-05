@@ -188,27 +188,31 @@ func secretServicePassword() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(locked) > 0 {
-		more, err := unlockItems(conn, svc, locked)
-		if err != nil {
-			return "", err
-		}
-		unlocked = append(unlocked, more...)
-	}
-	if len(unlocked) == 0 {
-		return "", errors.New("no unlocked \"Claude Safe Storage\" item in the keyring")
-	}
-
 	session, err := openPlainSession(svc)
 	if err != nil {
 		return "", err
 	}
 	defer conn.Object(secretServiceName, session).Call(secretSessionIface+".Close", 0)
 
-	for _, item := range unlocked {
-		value, err := itemSecret(conn, item, session)
-		if err == nil && value != "" {
+	readItems := func(items []dbus.ObjectPath) string {
+		for _, item := range items {
+			value, err := itemSecret(conn, item, session)
+			if err == nil && value != "" {
+				return value
+			}
+		}
+		return ""
+	}
+	if value := readItems(unlocked); value != "" {
+		return value, nil
+	}
+	if len(locked) > 0 {
+		more, unlockErr := unlockItems(conn, svc, locked)
+		if value := readItems(more); value != "" {
 			return value, nil
+		}
+		if unlockErr != nil {
+			return "", unlockErr
 		}
 	}
 	return "", errors.New("could not read the \"Claude Safe Storage\" secret")
@@ -269,7 +273,8 @@ func unlockItems(conn *dbus.Conn, svc dbus.BusObject, locked []dbus.ObjectPath) 
 	if prompt == "/" {
 		return unlocked, nil
 	}
-	return runUnlockPrompt(conn, prompt)
+	more, err := runUnlockPrompt(conn, prompt)
+	return append(unlocked, more...), err
 }
 
 // runUnlockPrompt runs a Secret Service prompt and returns the items it unlocked.
