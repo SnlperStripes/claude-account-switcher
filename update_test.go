@@ -114,6 +114,21 @@ func TestFetchRelease(t *testing.T) {
 	}
 }
 
+func TestAssetFor(t *testing.T) {
+	for _, c := range []struct{ goos, goarch, want string }{
+		{"windows", "amd64", "claude-account-switcher-windows-amd64.exe"},
+		{"darwin", "arm64", "claude-account-switcher-macos"},
+		{"linux", "amd64", "claude-account-switcher-linux-amd64"},
+		{"linux", "arm64", "claude-account-switcher-linux-arm64"},
+		{"linux", "386", ""},
+		{"freebsd", "amd64", ""},
+	} {
+		if got := assetFor(c.goos, c.goarch); got != c.want {
+			t.Errorf("assetFor(%q, %q) = %q, want %q", c.goos, c.goarch, got, c.want)
+		}
+	}
+}
+
 func TestReplaceExe(t *testing.T) {
 	exe := filepath.Join(t.TempDir(), "switcher.exe")
 	if err := os.WriteFile(exe, []byte("old"), 0o755); err != nil {
