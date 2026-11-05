@@ -20,6 +20,14 @@ jobs:
           - os: macos-latest
             out: claude-account-switcher-macos
             flags: -s -w
+          - os: ubuntu-latest
+            out: claude-account-switcher-linux-amd64
+            goarch: amd64
+            flags: -s -w
+          - os: ubuntu-latest
+            out: claude-account-switcher-linux-arm64
+            goarch: arm64
+            flags: -s -w
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +53,8 @@ jobs:
             CGO_ENABLED=1 GOARCH=amd64 go build -ldflags "${{ matrix.flags }}" -o dist/amd64 .
             lipo -create -output "dist/${{ matrix.out }}" dist/arm64 dist/amd64
             rm dist/arm64 dist/amd64
+          elif [ "$RUNNER_OS" = Linux ]; then
+            CGO_ENABLED=0 GOOS=linux GOARCH="${{ matrix.goarch }}" go build -ldflags "${{ matrix.flags }}" -o "dist/${{ matrix.out }}" .
           else
             go build -ldflags "${{ matrix.flags }}" -o "dist/${{ matrix.out }}" .
           fi
