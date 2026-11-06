@@ -460,3 +460,40 @@ func TestCookieFilesFollowAppLayout(t *testing.T) {
 		t.Fatalf("with Network/: %q, want %q", got, want)
 	}
 }
+
+// sshTestEnv points every data folder the desktop might use at a temp dir,
+// so the switcher's writes stay out of the real Claude folder.
+func sshTestEnv(t *testing.T) {
+	t.Helper()
+	home := t.TempDir()
+	for _, k := range []string{"HOME", "USERPROFILE", "XDG_CONFIG_HOME", "APPDATA", "LOCALAPPDATA"} {
+		t.Setenv(k, home)
+	}
+}
+
+func TestImportSSHChats(t *testing.T) {
+	sshTestEnv(t)
+	s := newSwitcher(t.TempDir())
+	chats := []sshChat{{Host: "box", Session: "abc123", First: "2026-10-01T10:00:00Z",
+		Last: "2026-10-01T11:00:00Z", Cwd: "/home/me/proj", Path: "/home/me/.claude/projects/p/abc123.jsonl"}}
+	if err := saveSSHCache(s.sshCachePath(), chats); err != nil {
+		t.Fatal(err)
+	}
+	a := &Account{UUID: "acc", Org: "org"}
+	entry := filepath.Join(s.app().sessionsDir(), "acc", "org", "local_abc123.json")
+
+	s.importSSHChats(a)
+	if _, err := os.Stat(entry); !os.IsNotExist(err) {
+		t.Fatal("wrote SSH chats with the setting off")
+	}
+
+	s.st.SSHImport = true
+	s.importSSHChats(a)
+	var rec map[string]any
+	if err := json.Unmarshal([]byte(read(t, entry)), &rec); err != nil {
+		t.Fatalf("entry is not JSON: %v", err)
+	}
+	if rec["cliSessionId"] != "abc123" || rec["cwd"] != "/home/me/proj" {
+		t.Fatalf("entry = %v, want the cached chat", rec)
+	}
+}

@@ -58,6 +58,9 @@ type State struct {
 	LatestVersion string    `json:"latestVersion,omitempty"`
 	// Language is set by hand, "en" or "zh-CN", to override the system's.
 	Language string `json:"language,omitempty"`
+	// SSHImport is off by default. When on, the switcher reads chat lists from
+	// the SSH hosts Claude knows, and adds the missing chats at each switch.
+	SSHImport bool `json:"sshImport,omitempty"`
 }
 
 // switchCause says why a switch happened.
@@ -109,6 +112,7 @@ type switcher struct {
 	st       State
 	active   string
 	busy     atomic.Bool
+	sshBusy  atomic.Bool
 	status   string
 	addingAt time.Time
 	onChange func()
@@ -475,6 +479,7 @@ func (s *switcher) switchTo(uuid string, cause switchCause) error {
 		n, err := syncSessions(s.app().sessionsDir(), target.UUID, target.Org)
 		log.Printf("switched to %s, %d chats imported", target.label(), n)
 		s.importProjects(target)
+		s.importSSHChats(target)
 		return err
 	})
 	if err == nil {
@@ -528,6 +533,7 @@ func (s *switcher) importChats() error {
 		n, err := syncSessions(s.app().sessionsDir(), a.UUID, a.Org)
 		log.Printf("%d chats imported into %s", n, a.label())
 		s.importProjects(a)
+		s.importSSHChats(a)
 		return err
 	})
 }
@@ -541,6 +547,52 @@ func (s *switcher) importProjects(a *Account) {
 		return
 	}
 	log.Printf("%d projects imported into %s", n, a.label())
+}
+
+// sshCachePath is where fetchSSH keeps the chats it found on the SSH hosts.
+func (s *switcher) sshCachePath() string { return filepath.Join(s.dir, "ssh-chats.json") }
+
+// fetchSSH asks the SSH hosts for chats the desktop does not list yet and
+// saves them. It does nothing while SSHImport is off, and never restarts
+// Claude. A run that is already going makes this one return at once.
+func (s *switcher) fetchSSH(ctx context.Context) {
+	s.mu.Lock()
+	on := s.st.SSHImport
+	s.mu.Unlock()
+	if !on || !s.sshBusy.CompareAndSwap(false, true) {
+		return
+	}
+	defer s.sshBusy.Store(false)
+
+	d := s.app()
+	chats := fetchSSHChats(ctx, d.dir, d.sessionsDir())
+	if err := saveSSHCache(s.sshCachePath(), chats); err != nil {
+		log.Printf("save ssh chats: %v", err)
+		return
+	}
+	log.Printf("%d SSH chats found", len(chats))
+}
+
+// importSSHChats adds the cached SSH chats to a. Like importProjects, a
+// failure only costs these chats, so it is logged and the switch goes on.
+func (s *switcher) importSSHChats(a *Account) {
+	s.mu.Lock()
+	on := s.st.SSHImport
+	s.mu.Unlock()
+	if !on {
+		return
+	}
+	chats, err := loadSSHCache(s.sshCachePath())
+	if err != nil {
+		log.Printf("ssh chats not imported into %s: %v", a.label(), err)
+		return
+	}
+	n, err := writeSSHChats(s.app().sessionsDir(), a.UUID, a.Org, chats, time.Now())
+	if err != nil {
+		log.Printf("ssh chats not imported into %s: %v", a.label(), err)
+		return
+	}
+	log.Printf("%d SSH chats imported into %s", n, a.label())
 }
 
 func (s *switcher) setAuto(on bool) {
@@ -559,6 +611,23 @@ func (s *switcher) setSpendWeekly(on bool) {
 	s.onChange()
 }
 
+// setSSHImport turns reading chats from SSH hosts on or off. Turning it on
+// starts one fetch in the background.
+func (s *switcher) setSSHImport(on bool) {
+	s.mu.Lock()
+	s.st.SSHImport = on
+	s.saveState()
+	s.mu.Unlock()
+	s.onChange()
+	if on {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+			defer cancel()
+			s.fetchSSH(ctx)
+		}()
+	}
+}
+
 func (s *switcher) setThreshold(t float64) {
 	s.mu.Lock()
 	s.st.Threshold = t
@@ -573,6 +642,7 @@ type snapshot struct {
 	Active      string
 	AutoSwitch  bool
 	SpendWeekly bool
+	SSHImport   bool
 	Threshold   float64
 	Status      string
 	Note        string
@@ -584,7 +654,7 @@ type snapshot struct {
 func (s *switcher) snapshot() snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	snap := snapshot{Active: s.active, AutoSwitch: s.st.AutoSwitch, SpendWeekly: s.st.SpendWeekly, Threshold: s.st.Threshold,
+	snap := snapshot{Active: s.active, AutoSwitch: s.st.AutoSwitch, SpendWeekly: s.st.SpendWeekly, SSHImport: s.st.SSHImport, Threshold: s.st.Threshold,
 		Status: s.status, Note: s.autoNote(time.Now()), Busy: s.busy.Load()}
 	if !s.st.NoUpdateCheck && newerVersion(s.st.LatestVersion, version) {
 		snap.Update = s.st.LatestVersion

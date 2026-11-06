@@ -163,6 +163,14 @@ Anthropic 的条款并不禁止拥有多个账号，但禁止“绕过我们的�
 
 </details>
 
+## SSH 聊天
+
+在另一台电脑上通过 SSH 打开的聊天，其内容保存在那台电脑上。本机没有它的条目，因此这些聊天不会出现在列表中。
+
+菜单中的 **从 SSH 主机导入聊天** 默认关闭。开启后，切换器会对 Claude 的 `ssh_configs.json` 和已有聊天条目中列出的主机运行 `ssh -o BatchMode=yes <host> python3 -`。它只读取这些主机上的 `~/.claude/projects`，并在下次切换或点击 **导入所有账号的聊天** 时补充缺失的条目。切换器还会在后台每 30 分钟检查一次，这一过程不会重启 Claude。
+
+这需要可以免密码登录的 ssh（基于密钥），以及主机上的 python3。切换器只读取主机，从不写入。
+
 ## 切换时正在进行的聊天
 
 Claude 必须退出才能切换，因此所有正在写回复或运行工具的 Claude Code 聊天都会停住。Claude 再次启动前，会弹出一个窗口列出这些聊天：
@@ -230,7 +238,7 @@ Claude 的数据目录因系统和安装方式而异：
 | --- | --- |
 | 已保存的登录、状态、备份和日志 | 位于 `~/.claude-account-switcher`（Windows 为 `%USERPROFILE%\.claude-account-switcher`），可通过菜单中的“打开数据文件夹”进入。在 Windows 上，其中的 `webview` 是询问继续哪些聊天的窗口所用的 WebView2 配置 |
 | Token | 按 Claude 原有加密形式保存，从不写成明文，只发送到 `api.anthropic.com` |
-| 网络访问 | `api.anthropic.com` 用于账号信息和用量。`api.github.com` 每天一次用于查询最新版本号，可在 `state.json` 中用 `"noUpdateCheck": true` 关闭。只有点击更新时才会访问 `github.com` |
+| 网络访问 | `api.anthropic.com` 用于账号信息和用量。`api.github.com` 每天一次用于查询最新版本号，可在 `state.json` 中用 `"noUpdateCheck": true` 关闭。只有点击更新时才会访问 `github.com`。开启“从 SSH 主机导入聊天”后，还会通过 ssh 连接你自己的 SSH 主机，详见[SSH 聊天](#ssh-聊天) |
 | 移除账号 | 退出切换器，删除 `accounts/` 下对应的文件夹，以及 `state.json` 中的对应条目 |
 | 卸载 | 关闭“开机时启动”，退出程序，删除可执行文件和数据文件夹 |
 

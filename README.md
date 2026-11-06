@@ -158,6 +158,14 @@ After any automatic switch, from either toggle, the top of the menu says why for
 
 </details>
 
+## SSH chats
+
+A chat opened over SSH on another computer keeps its transcript on that computer, so this one has no entry for it and the chat does not show up in the list.
+
+**Import chats from SSH hosts** in the menu is off by default. With it on, the switcher runs `ssh -o BatchMode=yes <host> python3 -` against the hosts listed in Claude's `ssh_configs.json` and in existing chat entries. On each host it only reads `~/.claude/projects`, and it adds the missing entries at the next switch or when you click **Import chats from all accounts**. It also looks every 30 minutes in the background, and that never restarts Claude.
+
+It needs key-based ssh that works without a password prompt, and python3 on the host. The host is only read, never written.
+
 ## Chats that were working
 
 Claude has to quit for a switch, so every Claude Code chat that is writing a reply or running a tool stops. Before Claude starts again, a window lists those chats:
@@ -229,7 +237,7 @@ Before each switch, `config.json` and the cookie store are backed up. The last 1
 | --- | --- |
 | Saved sign-ins, state, backups, log | `~/.claude-account-switcher` (`%USERPROFILE%\.claude-account-switcher` on Windows), **Open data folder** in the menu. On Windows, `webview` in there is the WebView2 profile of the window that asks which chats continue |
 | Tokens | Stored exactly as Claude encrypted them. Never written in plain text, never sent anywhere but `api.anthropic.com` |
-| Network | `api.anthropic.com` for profiles and usage. `api.github.com` once a day for the latest version number, off with `"noUpdateCheck": true` in `state.json`. `github.com` only when you click to update |
+| Network | `api.anthropic.com` for profiles and usage. `api.github.com` once a day for the latest version number, off with `"noUpdateCheck": true` in `state.json`. `github.com` only when you click to update. With **Import chats from SSH hosts** on, also ssh to your own SSH hosts, see [SSH chats](#ssh-chats) |
 | Remove an account | Quit the switcher, delete its folder under `accounts/` and its entry in `state.json` |
 | Uninstall | Turn off **Start at login**, quit, delete the binary and the data folder |
 

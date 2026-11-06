@@ -23,6 +23,7 @@ type tray struct {
 	accounts   [maxAccounts]*systray.MenuItem
 	auto       *systray.MenuItem
 	spend      *systray.MenuItem
+	sshImport  *systray.MenuItem
 	thresholds []*systray.MenuItem
 	custom     *systray.MenuItem
 	add        *systray.MenuItem
@@ -56,6 +57,9 @@ func (t *tray) onReady() {
 	t.spend = systray.AddMenuItemCheckbox(tr("Auto-switch to use up expiring weekly", "自动用掉即将重置的周额度"),
 		tr("Switch to an account whose weekly limit resets within a day with half or more of it unused",
 			"切换到周额度将在一天内重置、且至少一半尚未使用的账号"), false)
+	t.sshImport = systray.AddMenuItemCheckbox(tr("Import chats from SSH hosts", "从 SSH 主机导入聊天"),
+		tr("Reads Claude Code chats on the SSH hosts Claude knows, over your own ssh",
+			"通过你自己的 ssh 读取 Claude 已知 SSH 主机上的 Claude Code 聊天"), false)
 	t.add = systray.AddMenuItem(tr("Add account…", "添加账号…"),
 		tr("Restart Claude on its sign-in screen, your current account is kept", "重启 Claude 并打开登录页面，当前账号会保留"))
 	t.importNow = systray.AddMenuItem(tr("Import chats from all accounts", "导入所有账号的聊天"),
@@ -102,10 +106,17 @@ func (t *tray) onReady() {
 				t.s.setAuto(!t.auto.Checked())
 			case <-t.spend.ClickedCh:
 				t.s.setSpendWeekly(!t.spend.Checked())
+			case <-t.sshImport.ClickedCh:
+				t.s.setSSHImport(!t.sshImport.Checked())
 			case <-t.add.ClickedCh:
 				go t.s.run(tr("Add account", "添加账号"), t.s.addAccount)
 			case <-t.importNow.ClickedCh:
-				go t.s.run(tr("Import", "导入"), t.s.importChats)
+				go t.s.run(tr("Import", "导入"), func() error {
+					ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+					t.s.fetchSSH(ctx)
+					cancel()
+					return t.s.importChats()
+				})
 			case <-t.autostart.ClickedCh:
 				if err := setAutostart(!t.autostart.Checked()); err != nil {
 					t.s.setStatus(tr("Start at login: ", "开机时启动：") + err.Error())
@@ -138,6 +149,7 @@ func (t *tray) onReady() {
 	t.s.onChange()
 	go t.loop()
 	go t.updateLoop()
+	go t.sshLoop()
 }
 
 // loop runs refresh every few seconds while a new sign-in is expected,
@@ -152,6 +164,19 @@ func (t *tray) loop() {
 		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 		t.s.refresh(ctx)
 		cancel()
+	}
+}
+
+// sshLoop reads the SSH hosts for new chats a minute after start, then every
+// 30 minutes. It has its own goroutine, and fetchSSH does nothing while the
+// setting is off.
+func (t *tray) sshLoop() {
+	time.Sleep(time.Minute)
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		t.s.fetchSSH(ctx)
+		cancel()
+		time.Sleep(30 * time.Minute)
 	}
 }
 
@@ -219,6 +244,7 @@ func (t *tray) render() {
 
 	setChecked(t.auto, snap.AutoSwitch)
 	setChecked(t.spend, snap.SpendWeekly)
+	setChecked(t.sshImport, snap.SSHImport)
 	for i, item := range t.thresholds {
 		setChecked(item, thresholds[i] == snap.Threshold)
 	}
