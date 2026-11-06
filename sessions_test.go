@@ -118,21 +118,40 @@ func TestSyncSessionsPreservesMalformedTargetIndex(t *testing.T) {
 	}
 }
 
-func TestSyncSessionsSkipsLocalIDCollision(t *testing.T) {
+// /clear keeps a chat's local ID but moves it to a new CLI session (issue #38).
+func TestSyncSessionsFollowsClearedChat(t *testing.T) {
 	root := t.TempDir()
-	write(t, filepath.Join(root, "a", "oa", "local_same.json"), `{"cliSessionId":"first","lastActivityAt":200}`)
+	cleared := filepath.Join(root, "a", "oa", "local_same.json")
+	write(t, cleared, `{"cliSessionId":"after-clear","lastActivityAt":200}`)
 	write(t, filepath.Join(root, "a", "oa", "local_other.json"), `{"cliSessionId":"other","lastActivityAt":300}`)
-	target := filepath.Join(root, "b", "ob", "local_same.json")
-	want := `{"cliSessionId":"second","lastActivityAt":100}`
-	write(t, target, want)
+	stale := filepath.Join(root, "b", "ob", "local_same.json")
+	write(t, stale, `{"cliSessionId":"before-clear","lastActivityAt":100}`)
 	for i := range 2 {
 		n, err := syncSessions(root, "b", "ob")
-		if err != nil || (i == 0 && n != 1) || (i == 1 && n != 0) {
-			t.Fatalf("sync %d with a local ID collision = %d, %v", i, n, err)
+		if err != nil || (i == 0 && n != 2) || (i == 1 && n != 0) {
+			t.Fatalf("sync %d after /clear = %d, %v", i, n, err)
 		}
 	}
+	if read(t, stale) != read(t, cleared) {
+		t.Fatal("the cleared chat did not reach the other account")
+	}
+	// The way back leaves the newer copy alone.
+	if n, err := syncSessions(root, "a", "oa"); err != nil || n != 0 {
+		t.Fatalf("sync back = %d, %v; want nothing to write", n, err)
+	}
+}
+
+func TestSyncSessionsKeepsNewerChatAfterClear(t *testing.T) {
+	root := t.TempDir()
+	write(t, filepath.Join(root, "a", "oa", "local_same.json"), `{"cliSessionId":"before-clear","lastActivityAt":100}`)
+	target := filepath.Join(root, "b", "ob", "local_same.json")
+	want := `{"cliSessionId":"after-clear","lastActivityAt":200}`
+	write(t, target, want)
+	if n, err := syncSessions(root, "b", "ob"); err != nil || n != 0 {
+		t.Fatalf("sync = %d, %v; want nothing to write", n, err)
+	}
 	if read(t, target) != want {
-		t.Fatal("local ID collision overwrote another conversation")
+		t.Fatal("an older copy replaced the chat after /clear")
 	}
 }
 

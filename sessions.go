@@ -99,18 +99,24 @@ func syncSessions(root, account, org string) (int, error) {
 			// Do not replace account-local settings with another account's alias.
 			continue
 		}
-		if dst, exists := targets[s.name]; exists && dst.cli != "" && s.cli != "" && dst.cli != s.cli {
-			log.Printf("Skip session index %s: local ID belongs to a different conversation in the target", s.path)
+		// The app makes up a local ID once per chat, so the same file name in
+		// two accounts is the same chat, copied here earlier. Its CLI session
+		// can still differ: /clear moves a chat to a new one. The newer copy
+		// wins either way, or the chat would stay apart in the accounts forever.
+		old, exists := targets[s.name]
+		if exists && s.activity <= old.activity {
 			continue
 		}
-		dst := filepath.Join(target, s.name)
-		if old, exists := targets[s.name]; exists && s.activity <= old.activity {
-			continue
-		}
-		if err := copyFile(s.path, dst); err != nil {
+		if err := copyFile(s.path, filepath.Join(target, s.name)); err != nil {
 			return written, err
 		}
 		written++
+		if exists && old.cli != s.cli {
+			log.Printf("%s moved to another Claude Code session, the newer one is kept", s.name)
+			if byIdentity[old.identity()] == s.name {
+				delete(byIdentity, old.identity())
+			}
+		}
 		targets[s.name] = s
 		byIdentity[s.identity()] = s.name
 	}
