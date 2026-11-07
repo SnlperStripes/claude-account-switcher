@@ -5,6 +5,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -48,3 +49,10 @@ func showWebDialog(dialogWindow, string) (json.RawMessage, error) { return nil, 
 func systemLanguages() []string { return []string{os.Getenv("LANG")} }
 
 func desktopRestartLaunch() (string, []string) { return "", nil }
+
+// instanceAddress is where the single-instance lock listens.
+func instanceAddress() (string, string) { return "tcp", instancePort }
+
+// sameUser reports whether the peer on the lock may make this switcher
+// quit. A loopback port carries no user, so every caller may.
+func sameUser(net.Conn) bool { return true }

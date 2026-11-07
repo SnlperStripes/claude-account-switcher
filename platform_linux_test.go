@@ -1,11 +1,16 @@
 package main
 
 import (
+	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 )
 
 func TestDesktopExe(t *testing.T) {
@@ -208,5 +213,120 @@ func TestInsideDesktop(t *testing.T) {
 	loop := func(pid int) int { return pid } // a chain that never ends
 	if insideDesktop(60, loop, func(int) bool { return false }) {
 		t.Error("a looping chain must end as not inside")
+	}
+}
+
+func TestDesktopEnvDropsRunAsNode(t *testing.T) {
+	in := []string{"HOME=/h", "ELECTRON_RUN_AS_NODE=1", "WAYLAND_DISPLAY=wayland-0", "ELECTRON_NO_ATTACH_CONSOLE=1"}
+	got := desktopEnv(in)
+	if !slices.Equal(got, []string{"HOME=/h", "WAYLAND_DISPLAY=wayland-0"}) {
+		t.Errorf("desktopEnv = %q", got)
+	}
+	if len(in) != 4 {
+		t.Error("desktopEnv changed its input")
+	}
+}
+
+func TestScopeArgs(t *testing.T) {
+	got := scopeArgs("/usr/lib/claude-desktop/claude-desktop", []string{"--ozone-platform=wayland"})
+	want := []string{"--user", "--scope", "--quiet", "--collect", "--", "/usr/lib/claude-desktop/claude-desktop", "--ozone-platform=wayland"}
+	if !slices.Equal(got, want) {
+		t.Errorf("scopeArgs = %q", got)
+	}
+}
+
+func TestStartWatched(t *testing.T) {
+	sh, err := exec.LookPath("sh")
+	if err != nil {
+		t.Skip("no sh")
+	}
+	if err := startWatched(nil, sh, "-c", "exit 3"); err == nil {
+		t.Error("a quick failure should be reported")
+	}
+	if err := startWatched(nil, sh, "-c", "exit 0"); err != nil {
+		t.Errorf("a clean quick exit counts as started: %v", err)
+	}
+	start := time.Now()
+	if err := startWatched(nil, sh, "-c", "sleep 5"); err != nil {
+		t.Errorf("a running program counts as started: %v", err)
+	}
+	if d := time.Since(start); d > scopeStartWait+time.Second {
+		t.Errorf("startWatched waited %v", d)
+	}
+}
+
+func TestInstanceSocketPerUser(t *testing.T) {
+	network, addr := instanceAddress()
+	if network != "unix" || addr != "@claude-account-switcher-"+strconv.Itoa(os.Getuid()) {
+		t.Fatalf("instanceAddress = %q %q", network, addr)
+	}
+	// A test name of its own, so a switcher running on this machine is left alone.
+	addr += "-test-" + strconv.Itoa(os.Getpid())
+	l, ok := lockInstance(network, addr)
+	if !ok {
+		t.Fatal("lock not taken")
+	}
+	defer l.Close()
+	quit := make(chan struct{})
+	go serveInstance(l, func() { close(quit) })
+	if got := hello(network, addr, version); got != "stay" {
+		t.Errorf("same version: %q, want stay", got)
+	}
+	if got := hello(network, addr, "99.0.0"); got != "quit" {
+		t.Errorf("newer version from the same user: %q, want quit", got)
+	}
+	select {
+	case <-quit:
+	case <-time.After(2 * time.Second):
+		t.Error("quit was not called")
+	}
+}
+
+func TestSameUserNeedsUnixPeer(t *testing.T) {
+	a, b := net.Pipe()
+	defer a.Close()
+	defer b.Close()
+	if sameUser(a) {
+		t.Error("a connection without credentials must not count as the same user")
+	}
+}
+
+// TestHelperHello is not a test of its own: TestOtherUserCannotQuit runs the
+// test binary again as another user, and this says hello from there.
+func TestHelperHello(t *testing.T) {
+	addr := os.Getenv("SWITCHER_HELLO_ADDR")
+	if addr == "" {
+		t.Skip("helper only")
+	}
+	os.Stdout.WriteString("answer=" + hello("unix", addr, "99.0.0") + "\n")
+}
+
+func TestOtherUserCannotQuit(t *testing.T) {
+	if os.Getuid() != 0 {
+		t.Skip("needs root to run a helper as another user")
+	}
+	addr := "@claude-account-switcher-test-" + strconv.Itoa(os.Getpid())
+	l, ok := lockInstance("unix", addr)
+	if !ok {
+		t.Fatal("lock not taken")
+	}
+	defer l.Close()
+	quit := make(chan struct{})
+	go serveInstance(l, func() { close(quit) })
+
+	cmd := exec.Command(os.Args[0], "-test.run=^TestHelperHello$")
+	cmd.Env = append(os.Environ(), "SWITCHER_HELLO_ADDR="+addr)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: 65534, Gid: 65534}}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("helper: %v\n%s", err, out)
+	}
+	if !strings.Contains(string(out), "answer=stay") {
+		t.Errorf("another user's newer version got %q, want stay", out)
+	}
+	select {
+	case <-quit:
+		t.Error("another user made the switcher quit")
+	case <-time.After(300 * time.Millisecond):
 	}
 }

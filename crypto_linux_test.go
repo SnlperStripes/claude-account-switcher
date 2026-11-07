@@ -6,6 +6,7 @@ import (
 	"crypto/cipher"
 	"crypto/pbkdf2"
 	"crypto/sha1"
+	"encoding/hex"
 	"errors"
 	"os"
 	"os/exec"
@@ -265,5 +266,23 @@ func testSecretServiceChild(t *testing.T, mode string) {
 	}
 	if got != "available-password" {
 		t.Fatalf("got %q", got)
+	}
+}
+
+// TestDecryptV10KnownAnswer checks against a value encrypted outside this
+// code, with OpenSSL: key PBKDF2-SHA1("peanuts", "saltysalt", 1 round, 16
+// bytes) = fd621fe5a2b402539dfa147ca9272778, AES-128-CBC, IV of 16 spaces.
+// The round-trip tests above would pass even if both sides shared a mistake.
+func TestDecryptV10KnownAnswer(t *testing.T) {
+	ct, err := hex.DecodeString("652f432c6c9be2f0c4c1fd66b151c01af1377e47d228f2bd1938562d88fb2f8e")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := decryptValue(append([]byte("v10"), ct...))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `{"token":"sk-ant-oat01-test"}`; string(got) != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }

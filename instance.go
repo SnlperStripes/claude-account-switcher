@@ -8,9 +8,10 @@ import (
 	"time"
 )
 
-// Only one switcher may run. It holds instancePort; a second start says hello
-// with its version there. The running one quits when the newcomer is newer,
-// so starting a new version replaces the old one, and otherwise stays.
+// Only one switcher may run. It holds instancePort (on Linux a socket of its
+// own user, see instanceAddress); a second start says hello with its version
+// there. The running one quits when the newcomer is newer, so starting a new
+// version replaces the old one, and otherwise stays.
 const instancePort = "127.0.0.1:47823"
 
 const helloPrefix = "claude-account-switcher "
@@ -18,11 +19,11 @@ const helloPrefix = "claude-account-switcher "
 // lockInstance takes the single-instance port, taking it over from an older
 // switcher that is running. It fails when a switcher of this version or a
 // newer one is running.
-func lockInstance(addr string) (net.Listener, bool) {
-	if l, err := net.Listen("tcp", addr); err == nil {
+func lockInstance(network, addr string) (net.Listener, bool) {
+	if l, err := net.Listen(network, addr); err == nil {
 		return l, true
 	}
-	switch hello(addr, version) {
+	switch hello(network, addr, version) {
 	case "quit":
 		log.Print("an older switcher is running, it is quitting")
 	case "stay":
@@ -37,7 +38,7 @@ func lockInstance(addr string) (net.Listener, bool) {
 	}
 	// The old switcher finishes a running switch before it quits.
 	for deadline := time.Now().Add(time.Minute); time.Now().Before(deadline); time.Sleep(200 * time.Millisecond) {
-		if l, err := net.Listen("tcp", addr); err == nil {
+		if l, err := net.Listen(network, addr); err == nil {
 			return l, true
 		}
 	}
@@ -47,8 +48,8 @@ func lockInstance(addr string) (net.Listener, bool) {
 
 // hello tells the switcher holding addr this version and returns its answer,
 // "quit" or "stay", or "" when it does not answer.
-func hello(addr, v string) string {
-	conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
+func hello(network, addr, v string) string {
+	conn, err := net.DialTimeout(network, addr, 2*time.Second)
 	if err != nil {
 		return ""
 	}
@@ -72,7 +73,7 @@ func serveInstance(l net.Listener, quit func()) {
 		conn.SetDeadline(time.Now().Add(3 * time.Second))
 		line, _ := bufio.NewReader(conn).ReadString('\n')
 		v, ok := strings.CutPrefix(line, helloPrefix)
-		if ok && newerVersion(strings.TrimSpace(v), version) {
+		if ok && sameUser(conn) && newerVersion(strings.TrimSpace(v), version) {
 			conn.Write([]byte("quit\n"))
 			conn.Close()
 			log.Printf("version %s started, quitting", strings.TrimSpace(v))
