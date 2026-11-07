@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"io/fs"
+	"log"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -211,15 +213,74 @@ func waitGone(timeout time.Duration) bool {
 }
 
 // startDetached starts a program in its own session, so it keeps running
-// after this process quits.
+// after this process quits, and where systemd runs the session also in a
+// scope of its own. Without the scope the program stays in the switcher's
+// cgroup. Started at login, that is a systemd service, and before systemd
+// 254 (Ubuntu 22.04, Debian 12) the service kills whatever is left in it
+// once the switcher quits, Claude included.
 func startDetached(path string, args ...string) error {
+	return startDetachedEnv(nil, path, args...)
+}
+
+// startDetachedEnv is startDetached with env as the environment, nil for
+// this process's own.
+func startDetachedEnv(env []string, path string, args ...string) error {
+	if run, err := exec.LookPath("systemd-run"); err == nil {
+		err := startWatched(env, run, scopeArgs(path, args)...)
+		if err == nil {
+			return nil
+		}
+		log.Printf("systemd-run could not start %s (%v), starting it directly", path, err)
+	}
 	cmd := exec.Command(path, args...)
+	cmd.Env = env
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
 		return err
 	}
 	go cmd.Wait()
 	return nil
+}
+
+// scopeArgs are the systemd-run arguments that run path in a new scope of
+// the user's systemd. systemd-run then becomes the program, so the process
+// keeps the switcher's environment.
+func scopeArgs(path string, args []string) []string {
+	return append([]string{"--user", "--scope", "--quiet", "--collect", "--", path}, args...)
+}
+
+// scopeStartWait is how long startWatched waits for a quick failure.
+const scopeStartWait = 2 * time.Second
+
+// startWatched starts a program in its own session and waits a moment. An
+// exit with an error in that time, such as systemd-run finding no user
+// manager, is returned, so the caller can start the program another way.
+// A program that is still running, or that ended cleanly, counts as started.
+func startWatched(env []string, path string, args ...string) error {
+	cmd := exec.Command(path, args...)
+	cmd.Env = env
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(scopeStartWait):
+		return nil
+	}
+}
+
+// desktopEnv is the environment Claude is started with: this process's own,
+// without the variables that make an Electron app run as plain Node. A
+// switcher started from a terminal inside Claude can inherit them.
+func desktopEnv(environ []string) []string {
+	return slices.DeleteFunc(slices.Clone(environ), func(kv string) bool {
+		name, _, _ := strings.Cut(kv, "=")
+		return name == "ELECTRON_RUN_AS_NODE" || name == "ELECTRON_NO_ATTACH_CONSOLE"
+	})
 }
 
 // desktopCommand finds the app to start: the program that was running, then
@@ -245,7 +306,7 @@ func startDesktop(exe string, args ...string) error {
 	if err != nil {
 		return err
 	}
-	return startDetached(path, args...)
+	return startDetachedEnv(desktopEnv(os.Environ()), path, args...)
 }
 
 // shellOpen opens a folder, or a web page in the default browser. xdg-open
@@ -361,6 +422,11 @@ func setAutostart(on bool) error {
 	// Go reports a binary that an update replaced with the " (deleted)"
 	// suffix, which is not part of the path.
 	exe = strings.TrimSuffix(exe, " (deleted)")
+	// A line break in the path would end the Exec line and start keys of its
+	// own, so such a path is refused.
+	if strings.ContainsFunc(exe, func(r rune) bool { return r < 0x20 || r == 0x7f }) {
+		return errors.New("the switcher's path contains a control character")
+	}
 	entry := "[Desktop Entry]\n" +
 		"Type=Application\n" +
 		"Name=Claude Account Switcher\n" +
@@ -415,4 +481,40 @@ func localeTag(v string) string {
 		return ""
 	}
 	return l
+}
+
+// instanceAddress is where the single-instance lock listens: an abstract
+// Unix socket named after the user. A loopback port is shared by every user
+// of the machine, so a second user could not start a switcher of their own
+// while the first one runs. The kernel removes an abstract socket with its
+// process, so a crash leaves nothing behind.
+func instanceAddress() (string, string) {
+	return "unix", "@claude-account-switcher-" + strconv.Itoa(os.Getuid())
+}
+
+// sameUser reports whether the peer on the lock runs as this user. Anyone on
+// the machine can connect to an abstract socket, and only the user's own
+// newer switcher may make this one quit.
+// A loopback port, which the tests use, carries no user, as on the other
+// platforms.
+func sameUser(conn net.Conn) bool {
+	if _, ok := conn.(*net.TCPConn); ok {
+		return true
+	}
+	uc, ok := conn.(*net.UnixConn)
+	if !ok {
+		return false
+	}
+	raw, err := uc.SyscallConn()
+	if err != nil {
+		return false
+	}
+	var cred *syscall.Ucred
+	var credErr error
+	if err := raw.Control(func(fd uintptr) {
+		cred, credErr = syscall.GetsockoptUcred(int(fd), syscall.SOL_SOCKET, syscall.SO_PEERCRED)
+	}); err != nil || credErr != nil {
+		return false
+	}
+	return int(cred.Uid) == os.Getuid()
 }
