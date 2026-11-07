@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -358,3 +359,10 @@ func systemLanguages() []string {
 }
 
 func desktopRestartLaunch() (string, []string) { return "", nil }
+
+// instanceAddress is where the single-instance lock listens.
+func instanceAddress() (string, string) { return "tcp", instancePort }
+
+// sameUser reports whether the peer on the lock may make this switcher
+// quit. A loopback port carries no user, so every caller may.
+func sameUser(net.Conn) bool { return true }
