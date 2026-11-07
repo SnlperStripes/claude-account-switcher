@@ -52,7 +52,7 @@ func main() {
 		return
 	}
 
-	lock, ok := lockInstance(instancePort)
+	lock, ok := lockInstance(instanceAddress())
 	if !ok {
 		return
 	}

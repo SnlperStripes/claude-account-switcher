@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Claude Account Switcher: use multiple Claude accounts in the desktop app</title>
-<meta name="description" content="Free tray tool for Windows and macOS. Switch the Claude desktop app between accounts in one click, without signing out or waiting for an email code. Claude Code chats come along, and you see the live usage of every account.">
+<meta name="description" content="Free tray tool for Windows, macOS and Linux. Switch the Claude desktop app between accounts in one click, without signing out or waiting for an email code. Claude Code chats come along, and you see the live usage of every account.">
 <link rel="canonical" href="https://snlperstripes.github.io/claude-account-switcher/">
 <link rel="icon" href="mark.svg" type="image/svg+xml">
 <meta name="theme-color" content="#0E1012">
@@ -25,7 +25,7 @@
       "name": "Claude Account Switcher",
       "description": "Tray tool that switches the Claude desktop app between accounts in one click, keeps every sign-in, carries Claude Code chats and projects across accounts and shows the live usage of every account. Unofficial, not affiliated with Anthropic.",
       "applicationCategory": "UtilitiesApplication",
-      "operatingSystem": "Windows 10, Windows 11, macOS",
+      "operatingSystem": "Windows 10, Windows 11, macOS, Linux",
       "url": "https://snlperstripes.github.io/claude-account-switcher/",
       "downloadUrl": "https://github.com/SnlperStripes/claude-account-switcher/releases/latest",
       "license": "https://www.apache.org/licenses/LICENSE-2.0",
@@ -126,6 +126,7 @@
     <div class="buttons">
       <a class="btn primary" href="https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-windows-amd64.exe">Download for Windows</a>
       <a class="btn" href="https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-macos">Download for macOS</a>
+      <a class="btn" href="https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-linux-amd64">Download for Linux</a>
       <a class="btn" href="https://github.com/SnlperStripes/claude-account-switcher">Source on GitHub</a>
     </div>
     <p class="small">Free and open source (Apache 2.0). One file, no installer. Unofficial, not affiliated with or endorsed by Anthropic.</p>
@@ -164,7 +165,7 @@
 <section>
   <h2>Get started</h2>
   <ol>
-    <li>Download the file for <a href="https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-windows-amd64.exe">Windows 10/11</a> or <a href="https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-macos">macOS</a> and run it while you are signed in to Claude. On Windows you can also run <code>winget install SnlperStripes.ClaudeAccountSwitcher</code> and start it with <code>claude-account-switcher</code>.</li>
+    <li>Download the file for <a href="https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-windows-amd64.exe">Windows 10/11</a>, <a href="https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-macos">macOS</a>, or <a href="https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-linux-amd64">Linux (x64)</a> and run it while you are signed in to Claude. On Linux, install the official Claude Desktop for Linux beta first, then run <code>chmod +x claude-account-switcher-linux-amd64</code> once. On Windows you can also run <code>winget install SnlperStripes.ClaudeAccountSwitcher</code> and start it with <code>claude-account-switcher</code>.</li>
     <li>Choose <b>Add account…</b> in its tray menu and sign in with your second account.</li>
     <li>From then on, click an account to switch. Turn on <b>Start at login</b> so it is always there.</li>
   </ol>
@@ -200,6 +201,10 @@
   <details>
     <summary>Does it work on macOS?</summary>
     <p>It builds for macOS (universal), but nobody has tested it on a real Mac yet. A <a href="https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml">test report</a> helps.</p>
+  </details>
+  <details>
+    <summary>Does it work on Linux?</summary>
+    <p>Yes, tested on Ubuntu 24.04. Builds for x64 and arm64 come with every release. It needs the official Claude Desktop for Linux beta. A <a href="https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=linux_report.yml">test report</a> helps.</p>
   </details>
   <details>
     <summary>Does it switch the Claude Code CLI in the terminal?</summary>

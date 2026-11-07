@@ -1,0 +1,51 @@
+name: Linux test report
+description: Tried it on Linux? Tell us how it went, good or bad.
+labels: [linux, testing]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The Linux build was tested on Ubuntu 24.04 only. Reports from other distributions and desktops help most.
+        Every report helps, including "it just worked".
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options:
+        - Everything worked
+        - Partly worked
+        - Did not work
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution, desktop and version
+      placeholder: "Ubuntu 24.04, GNOME 46"
+    validations:
+      required: true
+  - type: input
+    id: claude
+    attributes:
+      label: Claude Desktop version
+      description: The official Claude Desktop for Linux beta.
+      placeholder: "1.0.0"
+  - type: checkboxes
+    id: steps
+    attributes:
+      label: What worked
+      options:
+        - label: The switcher started and showed a tray icon
+        - label: The tray menu opened (AppIndicator, or the GNOME extension)
+        - label: The keyring was unlocked and usage showed for each account
+        - label: Add account… worked
+        - label: Switching accounts worked
+        - label: Chats showed up on the other account
+        - label: The zenity or kdialog windows opened
+        - label: Start at login worked after a reboot
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes and log excerpt
+      description: Anything odd, plus the relevant part of `switcher.log`. No tokens, please.
+      render: text
