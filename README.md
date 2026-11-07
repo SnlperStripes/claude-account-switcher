@@ -81,7 +81,7 @@ Download the file for your platform and run it. No installer, no runtime, one fi
   - The tray uses the AppIndicator (StatusNotifierItem) protocol. It works on Ubuntu's default desktop and KDE. On plain GNOME, install the "AppIndicator and KStatusNotifierItem Support" extension.
   - The custom threshold and the window that asks which chats continue use `zenity` or `kdialog`, whichever is installed.
   - The sign-in key is kept in the desktop keyring (GNOME Keyring or KDE Wallet). Usage needs the keyring unlocked, which it normally is after login.
-  - Confirmed working on Linux. Reports from other setups are welcome.
+  - Tested on Ubuntu 24.04 with the official Claude Desktop beta. Other distributions and desktops have not been tried yet, reports are welcome.
 
 Then turn on **Start at login** in its menu.
 
@@ -287,7 +287,7 @@ Yes. It finds the Store app's real data folder and works with the direct downloa
 It builds for macOS (universal) in CI, but nobody has tested it on a real Mac yet. A [test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml) helps.
 
 **Does it work on Linux?**
-It has been confirmed working on Linux. Linux builds for x64 and arm64 are produced in CI. It needs the official Claude Desktop for Linux beta, see [Install](#install). A [test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=linux_report.yml) helps.
+Yes, tested on Ubuntu 24.04 (x64). Builds for x64 and arm64 come with every release. It needs the official Claude Desktop for Linux beta, see [Install](#install). A [test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=linux_report.yml) helps.
 
 **Does it switch the Claude Code CLI in the terminal?**
 No. This switches the Claude desktop app, including the Claude Code chats inside it. The `claude` command in a terminal keeps its own sign-in, and the switcher does not touch it.

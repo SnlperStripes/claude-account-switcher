@@ -150,3 +150,15 @@ func contains(list []string, s string) bool {
 	}
 	return false
 }
+
+func TestChecklistTitlesAreNeverOptions(t *testing.T) {
+	titles := []string{"--help", "-x", "fine"}
+	z := zenityChecklistArgs("t", "p", titles, time.Minute)
+	if got := z[len(z)-9:]; !reflect.DeepEqual(got, []string{"TRUE", "0", " --help", "TRUE", "1", " -x", "TRUE", "2", "fine"}) {
+		t.Errorf("zenity rows = %q", got)
+	}
+	k := kdialogChecklistArgs("t", "p", titles)
+	if got := k[len(k)-9:]; !reflect.DeepEqual(got, []string{"0", " --help", "on", "1", " -x", "on", "2", "fine", "on"}) {
+		t.Errorf("kdialog rows = %q", got)
+	}
+}

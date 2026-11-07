@@ -5,7 +5,7 @@ Thanks for wanting to help. Bug reports, macOS and Linux test runs and pull requ
 ## The most useful things right now
 
 - **Run it on a Mac.** The macOS build passes CI but has never run on a real Mac. Open a [macOS test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml), even if everything worked.
-- **Run it on Linux.** The Linux builds pass CI but have never run on a real desktop. Open a [Linux test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=linux_report.yml), even if everything worked.
+- **Run it on Linux.** The Linux build was tested on Ubuntu 24.04 only. Other distributions and desktops (KDE, Fedora, Arch, Wayland or X11) need reports. Open a [Linux test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=linux_report.yml), even if everything worked.
 - **Report breakage after a Claude update.** The switcher depends on how Claude stores its files. When an update changes that, a bug report with the Claude version and a log excerpt is the fastest way to a fix.
 
 ## Build and test

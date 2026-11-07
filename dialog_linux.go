@@ -154,7 +154,7 @@ func zenityChecklistArgs(title, prompt string, titles []string, wait time.Durati
 		fmt.Sprintf("--timeout=%d", secs),
 	}
 	for i, t := range titles {
-		args = append(args, "TRUE", strconv.Itoa(i), t)
+		args = append(args, "TRUE", strconv.Itoa(i), notAnOption(t))
 	}
 	return args
 }
@@ -164,7 +164,7 @@ func zenityChecklistArgs(title, prompt string, titles []string, wait time.Durati
 func kdialogChecklistArgs(title, prompt string, titles []string) []string {
 	args := []string{"--title", title, "--checklist", prompt}
 	for i, t := range titles {
-		args = append(args, strconv.Itoa(i), t, "on")
+		args = append(args, strconv.Itoa(i), notAnOption(t), "on")
 	}
 	return args
 }
@@ -197,4 +197,14 @@ func parseKdialogTags(out string, n int) []bool {
 		}
 	}
 	return keep
+}
+
+// notAnOption keeps a chat title that starts with "-" from being read as an
+// option by zenity or kdialog, which would make the dialog fail. A leading
+// space is enough and does not show.
+func notAnOption(s string) string {
+	if strings.HasPrefix(s, "-") {
+		return " " + s
+	}
+	return s
 }
