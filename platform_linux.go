@@ -264,9 +264,77 @@ func launch(exe string) error { return startDetached(exe) }
 // Linux, so there is none to ask the user to quit.
 func askToQuitOld() {}
 
-// relaunchOutsideDesktop does nothing: the Linux app does not share the
-// switcher's environment the way the Windows Store app does.
-func relaunchOutsideDesktop(string) bool { return false }
+// relaunchOutsideDesktop starts the switcher again in its own session when it
+// was started from inside the Claude app, for example from a Claude Code
+// terminal. Otherwise quitting Claude for a switch closes that terminal,
+// which ends the switcher before it can start Claude again. A marker file
+// stops a relaunch loop should the check ever misjudge.
+func relaunchOutsideDesktop(dataDir string) bool {
+	if !insideDesktop(os.Getppid(), parentPID, isDesktopPID) {
+		return false
+	}
+	marker := filepath.Join(dataDir, "relaunched")
+	if info, err := os.Stat(marker); err == nil && time.Since(info.ModTime()) < 30*time.Second {
+		return false
+	}
+	exe, err := os.Executable()
+	if err != nil || os.WriteFile(marker, nil, 0o600) != nil {
+		return false
+	}
+	return startDetached(strings.TrimSuffix(exe, " (deleted)"), os.Args[1:]...) == nil
+}
+
+// insideDesktop walks up from pid through its parents and reports whether
+// one of them is the Claude app. The walk stops at init and after a fixed
+// number of steps, so a broken parent chain cannot loop.
+func insideDesktop(pid int, parent func(int) int, isDesktop func(int) bool) bool {
+	for range 64 {
+		if pid <= 1 {
+			return false
+		}
+		if isDesktop(pid) {
+			return true
+		}
+		pid = parent(pid)
+	}
+	return false
+}
+
+// isDesktopPID reports whether pid runs the Claude app, helpers included.
+func isDesktopPID(pid int) bool {
+	link, err := os.Readlink(filepath.Join("/proc", strconv.Itoa(pid), "exe"))
+	if err != nil {
+		return false
+	}
+	_, ok := desktopExe(link)
+	return ok
+}
+
+// parentPID reads a process's parent from /proc/<pid>/stat, 0 when it
+// cannot be read.
+func parentPID(pid int) int {
+	raw, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
+	if err != nil {
+		return 0
+	}
+	return statParent(string(raw))
+}
+
+// statParent takes the parent pid out of a /proc/<pid>/stat line. The
+// program name sits in parentheses and may itself hold spaces and
+// parentheses, so the fields are read after the last ")": state, then ppid.
+func statParent(stat string) int {
+	i := strings.LastIndexByte(stat, ')')
+	if i < 0 {
+		return 0
+	}
+	fields := strings.Fields(stat[i+1:])
+	if len(fields) < 2 {
+		return 0
+	}
+	ppid, _ := strconv.Atoi(fields[1])
+	return ppid
+}
 
 // autostartPath is the XDG autostart entry that starts the switcher at login.
 func autostartPath() string {

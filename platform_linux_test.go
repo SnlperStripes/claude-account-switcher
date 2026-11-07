@@ -179,3 +179,34 @@ func TestDesktopRestartSkipsTransientArguments(t *testing.T) {
 		t.Fatalf("helper selected: %q %q", exe, args)
 	}
 }
+
+func TestStatParent(t *testing.T) {
+	for stat, want := range map[string]int{
+		"1234 (bash) S 1200 1234 1234 34816 0":            1200,
+		"4321 (a b) (c)) R 77 4321 4321 0 -1":             77,
+		"99 (claude-desktop) S 1 99 99 0 -1 4194560 1000": 1,
+		"broken":      0,
+		"5 (short) S": 0,
+	} {
+		if got := statParent(stat); got != want {
+			t.Errorf("statParent(%q) = %d, want %d", stat, got, want)
+		}
+	}
+}
+
+func TestInsideDesktop(t *testing.T) {
+	// 40 (shell) -> 30 (claude-desktop helper) -> 20 (claude-desktop) -> 1
+	parents := map[int]int{40: 30, 30: 20, 20: 1, 50: 1}
+	parent := func(pid int) int { return parents[pid] }
+	isDesktop := func(pid int) bool { return pid == 20 || pid == 30 }
+	if !insideDesktop(40, parent, isDesktop) {
+		t.Error("a shell under the Claude app should count as inside")
+	}
+	if insideDesktop(50, parent, isDesktop) {
+		t.Error("a process under init is not inside the Claude app")
+	}
+	loop := func(pid int) int { return pid } // a chain that never ends
+	if insideDesktop(60, loop, func(int) bool { return false }) {
+		t.Error("a looping chain must end as not inside")
+	}
+}
