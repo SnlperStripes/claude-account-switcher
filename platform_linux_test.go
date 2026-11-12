@@ -330,3 +330,15 @@ func TestOtherUserCannotQuit(t *testing.T) {
 	case <-time.After(300 * time.Millisecond):
 	}
 }
+
+func TestOwnedByMe(t *testing.T) {
+	if !ownedByMe("/proc/self") {
+		t.Error("ownedByMe(/proc/self) = false, want true")
+	}
+	if ownedByMe(filepath.Join(t.TempDir(), "gone")) {
+		t.Error("ownedByMe of a missing folder = true, want false")
+	}
+	if os.Getuid() != 0 && ownedByMe("/proc/1") {
+		t.Error("ownedByMe(/proc/1) = true for a user who is not root")
+	}
+}
