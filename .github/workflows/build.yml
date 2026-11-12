@@ -49,6 +49,49 @@ jobs:
             go build -ldflags "${{ matrix.flags }}" -o "dist/${{ matrix.out }}" .
           fi
           cd dist && { sha256sum "${{ matrix.out }}" 2>/dev/null || shasum -a 256 "${{ matrix.out }}"; } > "${{ matrix.out }}.sha256"
+      # Code signing through the SignPath Foundation, see CODE_SIGNING.md.
+      # Only the Windows exe of a version tag, and only once the
+      # SIGNPATH_API_TOKEN secret exists; until then releases stay unsigned.
+      # The token is never put in an environment variable.
+      - name: Check for code signing
+        id: signing
+        if: runner.os == 'Windows' && startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          ENABLED: ${{ secrets.SIGNPATH_API_TOKEN != '' }}
+        run: echo "enabled=$ENABLED" >> "$GITHUB_OUTPUT"
+      - name: Upload unsigned exe
+        id: unsigned
+        if: steps.signing.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-${{ matrix.out }}
+          path: dist/${{ matrix.out }}
+      - name: Sign exe
+        if: steps.signing.outputs.enabled == 'true'
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'claude-account-switcher' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG || 'release-signing' }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          # Every release is approved by hand in SignPath.
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed
+      - name: Check signature
+        if: steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          $s = Get-AuthenticodeSignature "signed/${{ matrix.out }}"
+          if ($s.Status -ne 'Valid') { throw "Signature is $($s.Status): $($s.StatusMessage)" }
+          Write-Host "Signed by $($s.SignerCertificate.Subject)"
+          Move-Item -Force "signed/${{ matrix.out }}" "dist/${{ matrix.out }}"
+      - name: Checksum of the signed exe
+        if: steps.signing.outputs.enabled == 'true'
+        shell: bash
+        run: cd dist && sha256sum "${{ matrix.out }}" > "${{ matrix.out }}.sha256"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.out }}

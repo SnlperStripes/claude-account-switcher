@@ -88,7 +88,7 @@ The builds are not code-signed, so the first start gets one warning:
   chmod +x claude-account-switcher-macos && xattr -d com.apple.quarantine claude-account-switcher-macos
   ```
 
-Every download has a `.sha256` file next to it, so you can check it is the file CI built.
+Every download has a `.sha256` file next to it, so you can check it is the file CI built. Signing plans and status: [Code signing policy](CODE_SIGNING.md). What the switcher sends where: [Privacy policy](PRIVACY.md).
 
 ## First run
 
