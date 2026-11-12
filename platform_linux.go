@@ -94,6 +94,9 @@ func scanDesktop() []desktopProc {
 			continue
 		}
 		dir := filepath.Join("/proc", e.Name())
+		if !ownedByMe(dir) {
+			continue // root sees every user's processes; only our own count
+		}
 		link, err := os.Readlink(filepath.Join(dir, "exe"))
 		if err != nil {
 			continue // another user's process, or it just exited
@@ -109,6 +112,17 @@ func scanDesktop() []desktopProc {
 		procs = append(procs, desktopProc{pid: pid, exe: exe, kind: processKind(args), args: args})
 	}
 	return procs
+}
+
+// ownedByMe reports whether the /proc/<pid> folder dir belongs to a process
+// of this user. The folder has the owner of the process.
+func ownedByMe(dir string) bool {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return false
+	}
+	st, ok := info.Sys().(*syscall.Stat_t)
+	return ok && int(st.Uid) == os.Getuid()
 }
 
 // desktopRestartCommand retains only persistent, recognized launch options.
