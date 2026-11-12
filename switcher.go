@@ -90,6 +90,14 @@ const (
 	noteFor = 12 * time.Hour
 	// Claude stays closed this long while it asks which stopped chats go on.
 	resumeWait = 30 * time.Second
+	// Chromium keeps cookie changes in memory and writes them to the cookie
+	// store in one batch, at the latest this long after the first unsaved
+	// change (kCommitInterval in sqlite_persistent_cookie_store.cc). Claude
+	// does not write the batch when it quits, so a quit sooner loses a new
+	// sign-in's web session (#58).
+	cookieCommitEvery = 30 * time.Second
+	// cookieSlack allows for a busy computer running that write late.
+	cookieSlack = 5 * time.Second
 	// The switcher keeps the computer awake this long after it starts Claude
 	// again, time for Claude to take its own keep awake back.
 	awakeAfterStart = 2 * time.Minute
@@ -114,6 +122,12 @@ type switcher struct {
 	busy     atomic.Bool
 	status   string
 	addingAt time.Time
+	// signedInAt is when the switcher saw Claude signed in with another
+	// account than at its last look, and looked says it has looked before.
+	signedInAt time.Time
+	looked     bool
+	// appDir pins the data folder in tests.
+	appDir   string
 	onChange func()
 	// After a 429, an account is not asked again before its backoff ends.
 	backoff map[string]time.Time
@@ -138,7 +152,12 @@ func (s *switcher) backupsDir() string            { return filepath.Join(s.dir, 
 
 // app looks the data folder up on every use, because Claude can move it in an
 // update while the switcher keeps running.
-func (s *switcher) app() desktop { return claudeDesktop() }
+func (s *switcher) app() desktop {
+	if s.appDir != "" {
+		return desktop{dir: s.appDir}
+	}
+	return claudeDesktop()
+}
 
 // saveState writes state.json. Callers hold s.mu.
 func (s *switcher) saveState() {
@@ -201,6 +220,7 @@ func (s *switcher) check(ctx context.Context) (string, func() error) {
 	_, exe := desktopProcesses()
 
 	s.mu.Lock()
+	s.noticeSignIn(active, time.Now())
 	s.active = active
 	if exe != "" {
 		s.st.AppExe = exe
@@ -299,6 +319,50 @@ func (s *switcher) check(ctx context.Context) (string, func() error) {
 	return "", nil
 }
 
+// noticeSignIn records when Claude came up signed in with an account it did
+// not have at the switcher's last look. active was read before now. Callers
+// hold s.mu.
+func (s *switcher) noticeSignIn(active string, now time.Time) {
+	if s.looked && active != "" && active != s.active {
+		s.signedInAt = now
+	}
+	s.looked = true
+}
+
+// cookiesSaved reports whether every cookie change Claude made up to since is
+// in its cookie store on disk: the store itself was written after since, and
+// each write takes all unsaved changes along, or more time has passed than
+// Chromium keeps a change unsaved. The journal is left out, it is written
+// before the store and says nothing about the store being done.
+func cookiesSaved(d desktop, since, now time.Time) bool {
+	if now.Sub(since) >= cookieCommitEvery+cookieSlack {
+		return true
+	}
+	info, err := os.Stat(d.cookieFiles()[0])
+	return err == nil && info.ModTime().After(since)
+}
+
+// settleSignIn waits until Claude has written a sign-in the switcher just saw
+// to its cookie store, so the quit that follows keeps its web session (#58).
+// That takes at most cookieCommitEvery and cookieSlack.
+func (s *switcher) settleSignIn() {
+	s.mu.Lock()
+	since := s.signedInAt
+	s.mu.Unlock()
+	if since.IsZero() || !desktopRunning() {
+		return
+	}
+	d := s.app()
+	if cookiesSaved(d, since, time.Now()) {
+		return
+	}
+	log.Printf("waiting for Claude to save the sign-in it made %s ago", time.Since(since).Round(time.Second))
+	// Once Claude is closed nothing more reaches the disk, waiting cannot help.
+	for desktopRunning() && !cookiesSaved(d, since, time.Now()) {
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
 // autoTarget picks the account to switch to and says why: the active one is
 // nearly full, or another one's week is about to reset mostly unused.
 // lastChat is when a chat was last active. Callers hold s.mu.
@@ -378,6 +442,7 @@ func (s *switcher) restart(change func(active string) error) error {
 	// Claude's keep awake ends when it quits, and a computer that has been
 	// idle long enough would then sleep in the middle of the switch.
 	free := stayAwake()
+	s.settleSignIn()
 	quitAt := time.Now()
 	running := runningChats(projectsDir(), quitAt)
 	if err := quitDesktop(); err != nil {
@@ -385,6 +450,8 @@ func (s *switcher) restart(change func(active string) error) error {
 		return err
 	}
 	s.mu.Lock()
+	// With Claude closed its files are final, nothing is left to wait for.
+	s.signedInAt = time.Time{}
 	exe := s.st.AppExe
 	s.mu.Unlock()
 	defer func() {
@@ -536,18 +603,26 @@ func (s *switcher) addAccount() error {
 // importChats makes the chats of all accounts visible in the signed-in one.
 func (s *switcher) importChats() error {
 	s.setStatus(tr("Importing chats…", "正在导入聊天…"))
-	return s.restart(func(active string) error {
-		s.mu.Lock()
-		a := s.account(active)
-		s.mu.Unlock()
-		if a == nil {
-			return errors.New(tr("no signed-in account", "没有已登录的账号"))
-		}
-		n, err := syncSessions(s.app().sessionsDir(), a.UUID, a.Org)
-		log.Printf("%d chats imported into %s", n, a.label())
-		s.importProjects(a)
-		return err
-	})
+	return s.restart(s.importInto)
+}
+
+// importInto saves the sign-in of the account Claude is closed with, so an
+// account added a moment ago has one to switch back to (#58), and copies the
+// chats and projects of all accounts into it.
+func (s *switcher) importInto(active string) error {
+	s.mu.Lock()
+	a := s.account(active)
+	s.mu.Unlock()
+	if a == nil {
+		return errors.New(tr("no signed-in account", "没有已登录的账号"))
+	}
+	if err := s.saveActive(active); err != nil {
+		return fmt.Errorf(tr("save current sign-in: %w", "保存当前登录：%w"), err)
+	}
+	n, err := syncSessions(s.app().sessionsDir(), a.UUID, a.Org)
+	log.Printf("%d chats imported into %s", n, a.label())
+	s.importProjects(a)
+	return err
 }
 
 // importProjects copies the projects of all accounts into a. A failure only
