@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Claude Account Switcher: use multiple Claude accounts in the desktop app</title>
-<meta name="description" content="Free tray tool for Windows and macOS. Switch the Claude desktop app between accounts in one click, without signing out or waiting for an email code. Claude Code chats come along, and you see the live usage of every account.">
+<title>Claude Account Switcher: Claude usage in your tray, every account one click away</title>
+<meta name="description" content="Free tray tool for Windows and macOS. See your Claude 5-hour and weekly usage in the tray, and switch the Claude desktop app between accounts in one click, without signing out or waiting for an email code. Claude Code chats come along.">
 <link rel="canonical" href="https://snlperstripes.github.io/claude-account-switcher/">
 <link rel="icon" href="mark.svg" type="image/svg+xml">
 <meta name="theme-color" content="#0E1012">
 
 <meta property="og:type" content="website">
-<meta property="og:title" content="Claude Account Switcher: use multiple Claude accounts in the desktop app">
-<meta property="og:description" content="Switch the Claude desktop app between accounts in one click. No email code, your Claude Code chats come along, live usage of every account.">
+<meta property="og:title" content="Claude Account Switcher: Claude usage in your tray, every account one click away">
+<meta property="og:description" content="See your Claude 5-hour and weekly usage in the tray. Switch the Claude desktop app between accounts in one click: no email code, your Claude Code chats come along.">
 <meta property="og:url" content="https://snlperstripes.github.io/claude-account-switcher/">
 <meta property="og:image" content="https://snlperstripes.github.io/claude-account-switcher/social-preview.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -23,7 +23,7 @@
     {
       "@type": "SoftwareApplication",
       "name": "Claude Account Switcher",
-      "description": "Tray tool that switches the Claude desktop app between accounts in one click, keeps every sign-in, carries Claude Code chats and projects across accounts and shows the live usage of every account. Unofficial, not affiliated with Anthropic.",
+      "description": "Tray tool for the Claude desktop app. It shows the live 5-hour and weekly usage of every account, with a tray ring that fills with the 5-hour usage, also with a single account. With several accounts it switches between them in one click, keeps every sign-in and carries Claude Code chats and projects across. Unofficial, not affiliated with Anthropic.",
       "applicationCategory": "UtilitiesApplication",
       "operatingSystem": "Windows 10, Windows 11, macOS",
       "url": "https://snlperstripes.github.io/claude-account-switcher/",
@@ -45,6 +45,12 @@
           "acceptedAnswer": { "@type": "Answer", "text": "They come along. The switcher copies the chat list and projects of your other accounts into the one you switch to, so the chat you were in shows up in the sidebar and you can keep going." } },
         { "@type": "Question", "name": "How do I see the usage of all my Claude accounts at once?",
           "acceptedAnswer": { "@type": "Answer", "text": "The tray menu shows 5-hour and weekly usage of every saved account, live, with when each limit resets." } },
+        { "@type": "Question", "name": "Is it useful with only one Claude account?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes, as a usage monitor. Start it while you are signed in to the Claude desktop app and it picks the account up by itself. The tray ring and the menu then show that account's 5-hour and weekly usage. The auto-switch toggles only act once a second account is added." } },
+        { "@type": "Question", "name": "How do I see my Claude usage in the Windows system tray?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Start Claude Account Switcher. Its tray icon is a ring that fills with your 5-hour usage and turns orange from 75%, red at the auto-switch threshold (96% by default). Hover it for the numbers, open the menu for the 5-hour and weekly limits with reset times." } },
+        { "@type": "Question", "name": "How do I track the Claude 5-hour limit and weekly limit?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The menu line of each account shows both with their reset times, for example 5h 42%, resets 19:00 · week 18%, resets Mon 09:00. The signed-in account is checked every two minutes, every minute from 85%." } },
         { "@type": "Question", "name": "Does it work with the Microsoft Store version of Claude?",
           "acceptedAnswer": { "@type": "Answer", "text": "Yes. It finds the Store app's real data folder and works with the direct download too, on Windows 10 and 11." } },
         { "@type": "Question", "name": "Does it switch the Claude Code CLI in the terminal?",
@@ -121,8 +127,8 @@
 <header class="hero">
   <div>
     <div class="brand"><img src="mark.svg" alt="">Claude Account Switcher</div>
-    <h1>Use multiple Claude accounts in the desktop app</h1>
-    <p class="lead">Hit your limit on one Claude account, keep working on the next one. One click, no email code, and your Claude Code chats come along.</p>
+    <h1>See your Claude usage. Switch accounts in one click.</h1>
+    <p class="lead">A ring in your tray fills with your 5-hour usage, and the menu shows your 5-hour and weekly limits with reset times. With more than one account, hit your limit on one and keep working on the next: no email code, and your Claude Code chats come along.</p>
     <div class="buttons">
       <a class="btn primary" href="https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-windows-amd64.exe">Download for Windows</a>
       <a class="btn" href="https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-macos">Download for macOS</a>
@@ -146,7 +152,8 @@
 
 <section>
   <h2>Why</h2>
-  <p>The Claude desktop app holds one account at a time. Changing it means signing out, which throws the sign-in away, signing in with the other address and waiting for an email code. Then the Claude Code chat you were in is gone from the sidebar, because Claude lists chats per account. And you only see the usage of the account you are signed in to.</p>
+  <p>Claude only shows your usage when you go looking for it. To see how much of your 5-hour or weekly limit is left, you open the usage page in Claude's settings, and the number is out of date the moment you close it.</p>
+  <p>With two accounts it gets worse. The Claude desktop app holds one account at a time. Changing it means signing out, which throws the sign-in away, signing in with the other address and waiting for an email code. Then the Claude Code chat you were in is gone from the sidebar, because Claude lists chats per account. And you only see the usage of the account you are signed in to.</p>
 </section>
 
 <section>
@@ -155,7 +162,7 @@
     <div class="card"><h3>Keeps every sign-in</h3><p>Each account's sign-in is saved and put back when you switch to it. You type an email code once per account.</p></div>
     <div class="card"><h3>Switches in one click</h3><p>Pick an account in the tray menu. Claude restarts signed in to it in about ten seconds.</p></div>
     <div class="card"><h3>Brings your chats along</h3><p>Claude Code chats and projects of your other accounts are copied into the one you switch to, and chats that were mid-reply pick up where they stopped. Deleted chats stay deleted.</p></div>
-    <div class="card"><h3>Shows usage of every account</h3><p>Live 5-hour and weekly usage for all saved accounts, with reset times. The tray icon fills as the active account gets used.</p></div>
+    <div class="card"><h3>Shows your usage at a glance</h3><p>A tray ring fills with the 5-hour usage and turns orange, then red, near the limit. The menu shows live 5-hour and weekly usage with reset times, for one account or all of them.</p></div>
     <div class="card"><h3>Can switch on its own</h3><p>Off by default. Turn it on and it moves to the account with the most room left before you hit the limit.</p></div>
     <div class="card"><h3>Stays on your machine</h3><p>Tokens stay encrypted as Claude stored them and go nowhere but <code>api.anthropic.com</code>.</p></div>
   </div>
@@ -165,7 +172,7 @@
   <h2>Get started</h2>
   <ol>
     <li>Download the file for <a href="https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-windows-amd64.exe">Windows 10/11</a> or <a href="https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-macos">macOS</a> and run it while you are signed in to Claude. On Windows you can also run <code>winget install SnlperStripes.ClaudeAccountSwitcher</code> and start it with <code>claude-account-switcher</code>.</li>
-    <li>Choose <b>Add account…</b> in its tray menu and sign in with your second account.</li>
+    <li>With one account, you are done: the ring and the menu show its usage. With more, choose <b>Add account…</b> in its tray menu and sign in with your second account.</li>
     <li>From then on, click an account to switch. Turn on <b>Start at login</b> so it is always there.</li>
   </ol>
   <p class="small">The builds are not code-signed, so Windows SmartScreen and macOS Gatekeeper warn once. The <a href="https://github.com/SnlperStripes/claude-account-switcher#install">install notes</a> show how to get past that.</p>
@@ -188,6 +195,22 @@
   <details>
     <summary>How do I see the usage of all my Claude accounts at once?</summary>
     <p>The tray menu shows 5-hour and weekly usage of every saved account, live, with when each limit resets. <code>claude-account-switcher -status</code> prints the same in a terminal.</p>
+  </details>
+  <details>
+    <summary>Is it useful with only one Claude account?</summary>
+    <p>Yes, as a usage monitor. Start it while you are signed in to the Claude desktop app and it picks the account up by itself, no setup. The tray ring and the menu then show that account's 5-hour and weekly usage. The auto-switch toggles only act once a second account is added.</p>
+  </details>
+  <details>
+    <summary>How do I see my Claude usage in the Windows system tray?</summary>
+    <p>Start the switcher. Its tray icon is a ring that fills with your 5-hour usage and turns orange from 75%, red at the threshold under <b>Auto-switch at</b> (96% by default). Hover it for the numbers, open the menu for the 5-hour and weekly limits with reset times. Windows may put a new tray icon into the overflow area, so pin it to the taskbar in the taskbar settings to keep it in sight.</p>
+  </details>
+  <details>
+    <summary>Can I see my Claude usage in the macOS menu bar?</summary>
+    <p>The macOS build puts the same ring in the menu bar, but nobody has tested it on a real Mac yet. A <a href="https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml">test report</a> helps.</p>
+  </details>
+  <details>
+    <summary>How do I track the Claude 5-hour limit and weekly limit?</summary>
+    <p>The menu line of each account shows both, for example <code>5h 42%, resets 19:00 · week 18%, resets Mon 09:00</code>. The signed-in account is checked every two minutes, every minute from 85%. These are the same numbers Claude and Claude Code read from <code>api.anthropic.com</code> for your plan.</p>
   </details>
   <details>
     <summary>What can I do when I hit the Claude usage limit?</summary>

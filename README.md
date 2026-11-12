@@ -10,10 +10,15 @@ English | [简体中文](README.zh-CN.md)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 ![Windows | macOS](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)
 
-**Hit your limit on one Claude account, keep working on the next one. One click, no email code.**
+**See your Claude usage in the tray. Hit the limit, keep working on your next account. One click, no email code.**
 
-A tray tool for the Claude desktop app. It swaps the signed-in account in about ten seconds,
-carries your Claude Code chats across, and shows the live usage of every account you own.
+A tray tool for the Claude desktop app, for one account or several.
+
+**Several accounts:** it swaps the signed-in account in about ten seconds, carries your Claude Code chats across
+and shows the live usage of every account side by side.
+
+**One account:** it is a usage monitor. The tray icon is a ring that fills with your 5-hour usage,
+and the menu shows your 5-hour and weekly usage with the time each one resets.
 
 **Your sign-ins never leave your machine.** Tokens stay encrypted exactly as Claude stored them,
 and the only server they ever go to is `api.anthropic.com`.
@@ -31,7 +36,9 @@ Unofficial. Not affiliated with or endorsed by Anthropic.
 
 ## The problem
 
-You have two Claude accounts because one runs out. Switching between them in the desktop app goes like this:
+Claude only shows your usage when you go looking for it. To see how much of your 5-hour or weekly limit is left, you open the usage page in Claude's settings, and the number is out of date the moment you close it.
+
+With two accounts, because one runs out, it gets worse. Switching between them in the desktop app goes like this:
 
 1. **Sign out.** That throws the sign-in away. Next time you need it, you start from zero.
 2. **Sign in with the other address and wait for the email code.** With a private relay address, that means opening another app to find it.
@@ -48,9 +55,9 @@ Three of those four steps are pure overhead, and the fourth is a guess.
 
 **Brings your chats along.** Before Claude starts, the switcher copies the chat list entries of your other accounts into the one you switch to. Open the chat you were in and keep going. Projects come along too, so chats stay grouped in them. Chats you deleted stay deleted.
 
-**Picks up where Claude stopped.** A switch restarts Claude, and a chat that was working at that moment would just stand still. The switcher notices which chats were in the middle of a reply and asks in a small window which of them should go on. Claude then continues the checked ones on the new account by itself.
+**Shows your usage at a glance, with one account or many.** The tray icon is a ring that fills with the active account's 5-hour usage: green, orange from 75%, red at your switch threshold. Hover it for the account and its numbers. The menu shows 5-hour and weekly usage for every saved account, live, with when each limit resets. A future 5-hour reset is shown even below the switch threshold, for example `5h 20%, resets 21:20`. At or above the threshold it reads `5h 98% until 21:20`. Times use a 24-hour clock in your local timezone.
 
-**Shows usage for all accounts at once.** 5-hour and weekly usage for every saved account, live, with when each limit resets. A future 5-hour reset is shown even below the switch threshold, for example `5h 20%, resets 21:20`. At or above the threshold it reads `5h 98% until 21:20`. Times use a 24-hour clock in your local timezone. The tray icon is a ring that fills with the active account's 5-hour usage: green, orange from 75%, red at your switch threshold.
+**Picks up where Claude stopped.** A switch restarts Claude, and a chat that was working at that moment would just stand still. The switcher notices which chats were in the middle of a reply and asks in a small window which of them should go on. Claude then continues the checked ones on the new account by itself.
 
 **Can switch on its own.** Off by default. Turn it on and the switcher moves Claude to the account with the most room left once the active one passes 96%, or 90, 94, 98 or any whole percentage you type in under Custom…. A second toggle moves it to an account whose weekly limit is about to reset mostly unused, so that usage is not lost.
 
@@ -96,7 +103,7 @@ Every download has a `.sha256` file next to it, so you can check it is the file 
 2. Choose **Add account…**. Claude restarts on its sign-in screen. Your first account is kept.
 3. Sign in with the second account. The switcher notices, restarts Claude once more, and the chats of your other account show up.
 
-From then on, click an account to switch.
+From then on, click an account to switch. With only one account, step 1 is all there is: the ring and the menu show its usage from then on, and you can add a second account any time.
 
 > [!IMPORTANT]
 > **Never use Sign out in Claude to change accounts.** Signing out can end that sign-in on Anthropic's side, and the switcher's saved copy stops working. The account then shows "signed out, add it again". Use **Add account…** to sign it in once more.
@@ -270,6 +277,21 @@ It stops, because Claude has to restart. Before Claude starts again, the switche
 **How do I see the usage of all my Claude accounts at once?**
 The tray menu shows 5-hour and weekly usage of every saved account, live, with when each limit resets. `claude-account-switcher -status` prints the same in a terminal.
 
+**Is it useful with only one Claude account?**
+Yes, as a usage monitor. Start it while you are signed in to the Claude desktop app and it picks the account up by itself, no setup. The tray ring and the menu then show that account's 5-hour and weekly usage. The auto-switch toggles only act once a second account is added.
+
+**How do I see my Claude usage in the Windows system tray?**
+Start the switcher. Its tray icon is a ring that fills with your 5-hour usage and turns orange from 75%, red at the threshold under **Auto-switch at** (96% by default). Hover it for the numbers, open the menu for the 5-hour and weekly limits with reset times. Windows may put a new tray icon into the overflow area, so pin it to the taskbar in the taskbar settings to keep it in sight.
+
+**Can I see my Claude usage in the macOS menu bar?**
+The macOS build puts the same ring in the menu bar, but nobody has tested it on a real Mac yet. A [test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml) helps.
+
+**How do I track the Claude 5-hour limit and weekly limit?**
+The menu line of each account shows both, for example `5h 42%, resets 19:00 · week 18%, resets Mon 09:00`. The signed-in account is checked every two minutes, every minute from 85%. These are the same numbers Claude and Claude Code read from `api.anthropic.com` for your plan.
+
+**Do I need the Claude desktop app?**
+Yes. The switcher reads the sign-in of the Claude desktop app, on Windows or macOS. If you only use the `claude` command in a terminal, it has nothing to read.
+
 **What can I do when I hit the Claude usage limit?**
 Switch to an account that has room left, or let **Auto-switch** do it for you shortly before the limit.
 
@@ -297,7 +319,7 @@ This relies on how the Claude desktop app stores its files today, not on a publi
 Bug reports, ideas and pull requests are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md).
 Got a Mac? A [macOS test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml) helps a lot, even if everything just worked.
 Found a security problem? Please report it privately, see [SECURITY.md](SECURITY.md).
-If the switcher saves you time, a star helps other people with more than one account find it.
+If the switcher saves you time, a star helps other Claude users find it.
 
 ## License
 
