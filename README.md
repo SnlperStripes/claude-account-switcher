@@ -178,6 +178,18 @@ On Windows the window is drawn with WebView2, which comes with Windows 11 and cu
 
 </details>
 
+## Claude Code in the terminal
+
+Off by default. Turn on **Switch Claude Code in the terminal too** and every switch, by hand or automatic, also moves the `claude` command to the same account, so the app and the terminal stay on one account. Windows and Linux only for now: on macOS Claude Code keeps its sign-in in the keychain, and the switcher does not touch it there.
+
+Once per account, sign Claude Code in: switch the app to that account, then run `/login` in Claude Code (or `claude auth login`) and sign in with the same account. The switcher keeps a copy of that sign-in and puts it back whenever you switch to that account. Until an account has one, the top of the menu says so.
+
+- Change accounts in Claude Code with `/login` directly, not `/logout` first. `/logout` revokes the sign-in, which also ends the copy the switcher keeps.
+- A running `claude` reads the changed sign-in on its own, no restart needed.
+- If Claude Code is signed in with an account the switcher does not have, it is left as it is.
+- `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN` and the other credentials Claude Code ranks above `/login` win over the switched sign-in.
+- The Code tab inside the desktop app always uses the app's own account and needs none of this.
+
 ## How it works
 
 The switcher saves and restores the sign-in of each account, copies the chat list and projects between accounts, and reads usage from `api.anthropic.com`. It backs up Claude's files before every switch and leaves the rest of Claude's settings alone.
@@ -204,10 +216,11 @@ Claude keeps its sign-in in two places inside its data folder:
 | Projects | `local-agent-mode-sessions/<account>/<organization>/spaces.json` | Adds missing projects, refreshes older ones, never deletes. Leaves out the claude.ai project link of the other organization, and a project you deleted in an account is not copied back |
 | Chats stopped by a switch | `interruptedByQuitAt` in their `local_<id>.json` | Sets Claude's own quit mark on the chats you chose to continue, removes it from the other accounts' copies and from chats you unchecked |
 | Conversations | `~/.claude/projects` | Reads the end of the ones written to in the last 30 minutes to see which chats are mid-reply. Never writes. They are shared by all accounts already |
+| Claude Code sign-in, only with the terminal option | `~/.claude/.credentials.json`: `claudeAiOauth` and the other entries of the claude.ai account. `~/.claude.json`: `oauthAccount`. Both inside `CLAUDE_CONFIG_DIR` when that is set | Copies the current entries to the switcher's folder, puts in the saved ones of the new account and clears that file's account caches, the way `/login` does. Holds the locks Claude Code takes for its own token refresh meanwhile. Leaves MCP server tokens and every other entry alone. Between switches it only reads them, to keep the copy of the signed-in account current |
 
 **Quitting Claude.** On Windows the switcher tells Claude's windows that Windows is closing the app, the way an installer does, and Claude quits within a second or two. A plain close request would only hide Claude in the tray. If Claude is still running after 20 seconds, it is ended.
 
-Before each switch, `config.json` and the cookie store are backed up. The last 10 backups are kept. If any step fails, the backup goes back and the error shows at the top of the menu.
+Before each switch, `config.json` and the cookie store are backed up. The last 10 backups are kept. If any step fails, the backup goes back and the error shows at the top of the menu. With the terminal option on, both Claude Code files are backed up to `cli-backups` before they change, the last 10 kept, and a failed swap puts back what it changed.
 
 **Usage.** The saved token cache is decrypted in memory with Claude's own key (DPAPI on Windows, the keychain on macOS). The switcher then asks `api.anthropic.com` for each account's profile and usage, the same endpoints Claude and Claude Code use themselves. The active account is checked every two minutes, every minute from 85%, the others every ten. That endpoint is rate-limited per account and Claude polls it too, so after a `429` the switcher waits as long as the server asks, or backs off up to 30 minutes, and keeps showing the last numbers meanwhile. Claude's tokens last about a month, so a saved account keeps showing live usage without being signed in.
 
@@ -222,7 +235,8 @@ Before each switch, `config.json` and the cookie store are backed up. The last 1
 | | |
 | --- | --- |
 | Saved sign-ins, state, backups, log | `~/.claude-account-switcher` (`%USERPROFILE%\.claude-account-switcher` on Windows), **Open data folder** in the menu. On Windows, `webview` in there is the WebView2 profile of the window that asks which chats continue |
-| Tokens | Stored exactly as Claude encrypted them. Never written in plain text, never sent anywhere but `api.anthropic.com` |
+| Tokens | The app's are stored exactly as Claude encrypted them, never written in plain text, never sent anywhere but `api.anthropic.com` |
+| Claude Code tokens, only with the terminal option | Kept the way Claude Code keeps them itself on Windows and Linux: plain JSON readable only by your user, in `accounts/<id>/cli.json` and `cli-backups`. Never sent anywhere and never refreshed by the switcher. Turning the option off stops all of it; delete those files to remove the copies |
 | Network | `api.anthropic.com` for profiles and usage. `api.github.com` once a day for the latest version number, off with `"noUpdateCheck": true` in `state.json`. `github.com` only when you click to update |
 | Remove an account | Quit the switcher, delete its folder under `accounts/` and its entry in `state.json` |
 | Uninstall | Turn off **Start at login**, quit, delete the binary and the data folder |
@@ -280,10 +294,10 @@ Yes. It finds the Store app's real data folder and works with the direct downloa
 It builds for macOS (universal) in CI, but nobody has tested it on a real Mac yet. A [test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml) helps.
 
 **Does it switch the Claude Code CLI in the terminal?**
-No. This switches the Claude desktop app, including the Claude Code chats inside it. The `claude` command in a terminal keeps its own sign-in, and the switcher does not touch it.
+Yes, if you turn it on, on Windows and Linux. With **Switch Claude Code in the terminal too** checked, every switch also moves the `claude` command to the same account, so the app and the terminal stay on one account. It is off by default and each account needs one `/login` in the terminal first, see [Claude Code in the terminal](#claude-code-in-the-terminal). Not on macOS yet.
 
 **Do my sign-ins leave my machine?**
-No. Tokens stay encrypted exactly as Claude stored them, and the only server they ever go to is `api.anthropic.com`. The only other request is a daily check on GitHub for a new version, which sends nothing about you and can be turned off, see [How it works](#how-it-works).
+No. Tokens stay exactly as Claude and Claude Code stored them, and the only server they ever go to is `api.anthropic.com`. The only other request is a daily check on GitHub for a new version, which sends nothing about you and can be turned off, see [How it works](#how-it-works).
 
 **How do I update?**
 The menu says so when a new version is out; click it and the switcher updates itself and restarts. Or download the new file and start it, it replaces the running one. With winget, run `winget upgrade SnlperStripes.ClaudeAccountSwitcher`. Your accounts and settings stay in the data folder.
