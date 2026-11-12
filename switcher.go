@@ -58,6 +58,8 @@ type State struct {
 	LatestVersion string    `json:"latestVersion,omitempty"`
 	// Language is set by hand, "en" or "zh-CN", to override the system's.
 	Language string `json:"language,omitempty"`
+	// CLIFollow moves Claude Code in the terminal along on every switch.
+	CLIFollow bool `json:"cliFollow,omitempty"`
 }
 
 // switchCause says why a switch happened.
@@ -132,6 +134,7 @@ type switcher struct {
 	// After a 429, an account is not asked again before its backoff ends.
 	backoff map[string]time.Time
 	strikes map[string]int
+	cli     cliState
 }
 
 func newSwitcher(dir string) *switcher {
@@ -579,6 +582,7 @@ func (s *switcher) switchTo(uuid string, cause switchCause) error {
 		s.active = uuid
 		s.saveState()
 		s.mu.Unlock()
+		s.followInCLI(*target)
 	}
 	return err
 }
@@ -671,14 +675,16 @@ type snapshot struct {
 	Note        string
 	Busy        bool
 	// Update is a version newer than this one, empty while there is none.
-	Update string
+	Update    string
+	CLIFollow bool
+	CLINote   string
 }
 
 func (s *switcher) snapshot() snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	snap := snapshot{Active: s.active, AutoSwitch: s.st.AutoSwitch, SpendWeekly: s.st.SpendWeekly, Threshold: s.st.Threshold,
-		Status: s.status, Note: s.autoNote(time.Now()), Busy: s.busy.Load()}
+		Status: s.status, Note: s.autoNote(time.Now()), Busy: s.busy.Load(), CLIFollow: s.st.CLIFollow, CLINote: s.cli.note}
 	if !s.st.NoUpdateCheck && newerVersion(s.st.LatestVersion, version) {
 		snap.Update = s.st.LatestVersion
 	}

@@ -187,6 +187,18 @@ Claude 重新启动后，会向每个勾选的聊天发送“The app was quit wh
 
 </details>
 
+## 终端中的 Claude Code
+
+默认关闭。勾选“终端中的 Claude Code 也一起切换”后，每次切换（无论手动还是自动）都会把 `claude` 命令也切换到同一个账号，让桌面应用和终端始终使用同一个账号。目前仅支持 Windows 和 Linux：在 macOS 上，Claude Code 把登录信息保存在钥匙串中，切换器不会改动。
+
+每个账号需要在 Claude Code 中登录一次：先把桌面应用切换到该账号，然后在 Claude Code 中运行 `/login`（或 `claude auth login`），用同一个账号登录。切换器会保存这份登录信息的副本，以后每次切换到该账号时自动放回。账号还没有副本时，菜单顶部会给出提示。
+
+- 在 Claude Code 中更换账号时请直接使用 `/login`，不要先运行 `/logout`。`/logout` 会吊销登录，切换器保存的副本也会随之失效。
+- 正在运行的 `claude` 会自行读取更换后的登录信息，无需重启。
+- 如果 Claude Code 登录的是切换器中没有的账号，切换器不会改动它。
+- `ANTHROPIC_API_KEY`、`CLAUDE_CODE_OAUTH_TOKEN` 以及 Claude Code 中优先级高于 `/login` 的其他凭证，会覆盖切换后的登录。
+- 桌面应用内的 Code 标签页始终使用应用自己的账号，不需要这个选项。
+
 ## 工作原理
 
 切换器保存和恢复各账号的登录状态，在账号之间复制聊天列表与项目分组，并从 `api.anthropic.com` 读取用量。每次切换前会备份 Claude 的相关文件，其他 Claude 设置保持原样。
@@ -211,10 +223,11 @@ Claude 的数据目录因系统和安装方式而异：
 | 项目分组 | `local-agent-mode-sessions/<account>/<organization>/spaces.json` | 添加缺失项目、更新较旧的项目，从不删除。不复制另一个组织的 claude.ai 项目链接，在某个账号中删除的项目也不会被复制回来 |
 | 因切换而停住的聊天 | 其 `local_<id>.json` 中的 `interruptedByQuitAt` | 为你选择继续的聊天写入 Claude 自己的退出标记，并从其他账号的副本和你取消勾选的聊天中移除 |
 | 聊天正文 | `~/.claude/projects` | 读取最近 30 分钟内有写入的对话末尾，判断哪些聊天正在回复中。从不写入。这些内容本来就由所有账号共享 |
+| Claude Code 登录信息（仅在开启终端选项时） | `~/.claude/.credentials.json` 中的 `claudeAiOauth` 及该 claude.ai 账号的其他字段；`~/.claude.json` 中的 `oauthAccount`。设置了 `CLAUDE_CONFIG_DIR` 时，两个文件都位于该目录中 | 把当前字段复制到切换器的文件夹，放入新账号已保存的字段，并像 `/login` 一样清除该文件中与账号相关的缓存。操作期间持有 Claude Code 自己刷新 Token 时使用的锁。MCP 服务器的 Token 和其他字段保持不动。两次切换之间只读取这些文件，用来保持当前登录账号的副本为最新 |
 
 **退出 Claude。** 在 Windows 上，切换器像安装程序那样通知 Claude 的窗口“Windows 正在关闭此应用”，Claude 会在一两秒内退出。普通的关闭请求只会把 Claude 隐藏到托盘。如果 20 秒后 Claude 仍在运行，会被强制结束。
 
-每次切换前会备份 `config.json` 和 Cookie 存储，保留最近 10 份。任何一步失败时都会恢复备份，并在菜单顶部显示错误。
+每次切换前会备份 `config.json` 和 Cookie 存储，保留最近 10 份。任何一步失败时都会恢复备份，并在菜单顶部显示错误。开启终端选项后，Claude Code 的两个文件在改动前会备份到 `cli-backups`，保留最近 10 份；替换失败时会把改动过的内容放回原样。
 
 **用量。** 程序使用 Claude 自己的密钥在内存中解密已保存的 Token 缓存：Windows 使用 DPAPI，macOS 使用钥匙串。随后请求账号信息和用量接口。当前账号每两分钟查询一次，达到 85% 后每分钟一次；其他账号每十分钟一次。接口按账号限流，而 Claude 本身也会轮询，因此收到 `429` 后会按服务器要求等待，或逐步退避，最长 30 分钟。等待期间保留最近的结果。Claude 的 Token 大约可用一个月，因此已保存但未登录的账号也能持续显示实时用量。
 
@@ -229,7 +242,8 @@ Claude 的数据目录因系统和安装方式而异：
 | 项目 | 说明 |
 | --- | --- |
 | 已保存的登录、状态、备份和日志 | 位于 `~/.claude-account-switcher`（Windows 为 `%USERPROFILE%\.claude-account-switcher`），可通过菜单中的“打开数据文件夹”进入。在 Windows 上，其中的 `webview` 是询问继续哪些聊天的窗口所用的 WebView2 配置 |
-| Token | 按 Claude 原有加密形式保存，从不写成明文，只发送到 `api.anthropic.com` |
+| Token | 桌面应用的 Token 按 Claude 原有加密形式保存，从不写成明文，只发送到 `api.anthropic.com` |
+| Claude Code 的 Token（仅在开启终端选项时） | 按 Claude Code 在 Windows 和 Linux 上自己的方式保存：只有你的用户可读的明文 JSON，位于 `accounts/<id>/cli.json` 和 `cli-backups`。切换器从不发送、也从不刷新它们。关闭该选项即停止这一切；删除这些文件即可移除副本 |
 | 网络访问 | `api.anthropic.com` 用于账号信息和用量。`api.github.com` 每天一次用于查询最新版本号，可在 `state.json` 中用 `"noUpdateCheck": true` 关闭。只有点击更新时才会访问 `github.com` |
 | 移除账号 | 退出切换器，删除 `accounts/` 下对应的文件夹，以及 `state.json` 中的对应条目 |
 | 卸载 | 关闭“开机时启动”，退出程序，删除可执行文件和数据文件夹 |
@@ -297,10 +311,10 @@ macOS 版本会把同样的圆环放在菜单栏中，但尚未在真实 Mac 上
 macOS 通用版本已通过 CI 构建，但尚未在真实 Mac 上测试。欢迎提交 [macOS 测试报告](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml)。
 
 **会切换终端中的 Claude Code CLI 账号吗？**
-不会。它切换的是 Claude 桌面应用及其中的 Claude Code 聊天；终端中的 `claude` 命令使用独立的登录状态。
+开启后会，支持 Windows 和 Linux。勾选“终端中的 Claude Code 也一起切换”后，每次切换都会把 `claude` 命令也切换到同一个账号，让桌面应用和终端始终使用同一个账号。该选项默认关闭，每个账号需要先在终端中运行一次 `/login`，详见[终端中的 Claude Code](#终端中的-claude-code)。macOS 暂不支持。
 
 **登录凭证会上传到其他地方吗？**
-不会。Token 按 Claude 原有加密形式存储，只发送到 `api.anthropic.com`。另有每天一次、不附带账号信息的 GitHub 版本查询，可以关闭，详见“工作原理”。
+不会。Token 保持 Claude 和 Claude Code 原有的存储方式，只发送到 `api.anthropic.com`。另有每天一次、不附带账号信息的 GitHub 版本查询，可以关闭，详见“工作原理”。
 
 **如何更新？**
 有新版本时，点击菜单顶部的提示即可下载、校验并以新版本重启。也可以直接运行新下载的版本，由它接管正在运行的旧版本。winget 用户可运行 `winget upgrade SnlperStripes.ClaudeAccountSwitcher`。账号和设置保存在独立的数据文件夹中，不受影响。
