@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        The Linux build was tested on Ubuntu 24.04 only. Reports from other distributions and desktops help most.
+        The Linux build is a beta and has run on Ubuntu 24.04 only. Reports from Debian, other Ubuntu versions and other desktops help most.
         Every report helps, including "it just worked".
   - type: dropdown
     id: result

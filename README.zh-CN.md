@@ -22,7 +22,7 @@
 
 [![下载 Windows 版](https://img.shields.io/badge/下载_Windows_版-.exe-2ea44f?style=for-the-badge)](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-windows-amd64.exe)
 [![下载 macOS 版](https://img.shields.io/badge/下载_macOS_版-universal-555555?style=for-the-badge)](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-macos)
-[![下载 Linux 版](https://img.shields.io/badge/下载_Linux_版-x64-555555?style=for-the-badge)](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-linux-amd64)
+[![下载 Linux 版](https://img.shields.io/badge/下载_Linux_版-x64_测试版-555555?style=for-the-badge)](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-linux-amd64)
 
 <img src="assets/demo.gif" width="720" alt="演示：5 小时额度用完，从托盘选择另一个账号，Claude 以该账号重启，同一个聊天继续进行">
 
@@ -83,11 +83,11 @@ Claude 只在你主动去看时才显示用量。想知道 5 小时或每周额�
   ```
 
 - **macOS：** 下载 [`claude-account-switcher-macos`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-macos)，同时支持 Apple Silicon 和 Intel。首次运行会询问一次是否允许读取钥匙串中的“Claude Safe Storage”，这是 Claude 加密登录凭证所用的密钥。macOS 版已通过 CI 构建，但尚未在真实 Mac 上测试，欢迎反馈。
-- **Linux（x64）：** 下载 [`claude-account-switcher-linux-amd64`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-linux-amd64)；ARM64 机器请下载 [`claude-account-switcher-linux-arm64`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-linux-arm64)。需要先安装官方的 Claude 桌面版 Linux 测试版（Ubuntu 22.04+ 或 Debian 12+，从 Anthropic 的 apt 软件源安装，软件包名为 `claude-desktop`，参见 [Claude 的 Linux 指南](https://code.claude.com/docs/en/desktop-linux)）。然后在保存文件的目录执行 `chmod +x claude-account-switcher-linux-amd64`，再启动程序。
-  - 托盘使用 AppIndicator（StatusNotifierItem）协议。Ubuntu 默认桌面和 KDE 开箱即用；原版 GNOME 需要安装 “AppIndicator and KStatusNotifierItem Support” 扩展。
+- **Linux（测试版，x64）：** 下载 [`claude-account-switcher-linux-amd64`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-linux-amd64)；ARM64 机器请下载 [`claude-account-switcher-linux-arm64`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-linux-arm64)。需要先安装官方的 Claude 桌面版 Linux 测试版（Ubuntu 22.04+ 或 Debian 12+，从 Anthropic 的 apt 软件源安装，软件包名为 `claude-desktop`，参见 [Claude 的 Linux 指南](https://code.claude.com/docs/en/desktop-linux)）。然后在保存文件的目录执行 `chmod +x claude-account-switcher-linux-amd64`，再启动程序。
+  - 托盘使用 AppIndicator（StatusNotifierItem）协议。Ubuntu 自带桌面和 KDE Plasma 支持该协议；原版 GNOME 需要安装 “AppIndicator and KStatusNotifierItem Support” 扩展。
   - 自定义阈值和询问继续哪些聊天的窗口使用 `zenity` 或 `kdialog`，安装其中之一即可。
   - 登录密钥保存在桌面密钥环中（GNOME Keyring 或 KDE Wallet）。查询用量需要密钥环处于解锁状态，通常登录后即已解锁。
-  - 已在 Ubuntu 24.04 上配合官方 Claude 桌面测试版测试通过。其他发行版和桌面环境尚未测试，欢迎反馈。
+  - 测试版：移植作者已在 Ubuntu 24.04 上配合官方 Claude 桌面测试版运行过。Debian、其他 Ubuntu 版本和其他桌面环境尚未测试，欢迎反馈。
 
 启动后可在菜单中开启 **开机时启动**。程序没有主窗口；Windows 用户请在任务栏右下角的托盘区域查找圆环图标，必要时展开隐藏的图标。
 
@@ -304,7 +304,7 @@ macOS 版本会把同样的圆环放在菜单栏中，但尚未在真实 Mac 上
 macOS 通用版本已通过 CI 构建，但尚未在真实 Mac 上测试。欢迎提交 [macOS 测试报告](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml)。
 
 **支持 Linux 吗？**
-支持，已在 Ubuntu 24.04（x64）上测试。每个版本都提供 x64 和 arm64 构建。需要先安装官方的 Claude 桌面版 Linux 测试版，参见[安装](#安装)。欢迎提交 [Linux 测试报告](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=linux_report.yml)。
+支持，自 v0.4.0 起为测试版。移植作者已在 Ubuntu 24.04（x64）上运行过，其他发行版和桌面环境尚未测试。每个版本都提供 x64 和 arm64 构建。需要先安装官方的 Claude 桌面版 Linux 测试版，参见[安装](#安装)。欢迎提交 [Linux 测试报告](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=linux_report.yml)。
 
 **会切换终端中的 Claude Code CLI 账号吗？**
 不会。它切换的是 Claude 桌面应用及其中的 Claude Code 聊天；终端中的 `claude` 命令使用独立的登录状态。
