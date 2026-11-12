@@ -76,7 +76,7 @@ Download the file for your platform and run it. No installer, no runtime, one fi
   winget install SnlperStripes.ClaudeAccountSwitcher
   ```
 - **macOS:** [`claude-account-switcher-macos`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-macos) (universal). The first start asks once whether it may read "Claude Safe Storage" from your keychain; that is the key Claude uses to encrypt its sign-in. Builds in CI, not yet tested on a real Mac. Reports welcome.
-- **Linux:** there is no official Claude desktop app, so there is nothing to switch.
+- **Linux:** not supported yet. Anthropic now offers [Claude Desktop for Linux as a beta](https://code.claude.com/docs/en/desktop-linux) (`claude-desktop` on Ubuntu 22.04+ and Debian 12+), and support for it is in the works in [#43](https://github.com/SnlperStripes/claude-account-switcher/pull/43).
 
 Then turn on **Start at login** in its menu.
 

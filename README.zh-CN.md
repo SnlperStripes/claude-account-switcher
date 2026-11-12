@@ -76,7 +76,7 @@
   ```
 
 - **macOS：** 下载 [`claude-account-switcher-macos`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-macos)，同时支持 Apple Silicon 和 Intel。首次运行会询问一次是否允许读取钥匙串中的“Claude Safe Storage”，这是 Claude 加密登录凭证所用的密钥。macOS 版已通过 CI 构建，但尚未在真实 Mac 上测试，欢迎反馈。
-- **Linux：** 没有官方的 Claude 桌面应用，因此不支持。
+- **Linux：** 暂不支持。Anthropic 现已推出 [Linux 版 Claude Desktop 测试版](https://code.claude.com/docs/en/desktop-linux)（`claude-desktop`，适用于 Ubuntu 22.04+ 和 Debian 12+），对它的支持正在 [#43](https://github.com/SnlperStripes/claude-account-switcher/pull/43) 中开发。
 
 启动后可在菜单中开启 **开机时启动**。程序没有主窗口；Windows 用户请在任务栏右下角的托盘区域查找圆环图标，必要时展开隐藏的图标。
 
