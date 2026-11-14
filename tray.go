@@ -23,6 +23,7 @@ type tray struct {
 	accounts   [maxAccounts]*systray.MenuItem
 	auto       *systray.MenuItem
 	spend      *systray.MenuItem
+	model      *systray.MenuItem
 	thresholds []*systray.MenuItem
 	custom     *systray.MenuItem
 	add        *systray.MenuItem
@@ -56,6 +57,9 @@ func (t *tray) onReady() {
 	t.spend = systray.AddMenuItemCheckbox(tr("Auto-switch to use up expiring weekly", "自动用掉即将重置的周额度"),
 		tr("Switch to an account whose weekly limit resets within a day with half or more of it unused",
 			"切换到周额度将在一天内重置、且至少一半尚未使用的账号"), false)
+	t.model = systray.AddMenuItemCheckbox(tr("Auto-switch on a model's weekly limit too", "单个模型的周额度快用完时也自动切换"),
+		tr("Count the weekly limit of one model, like Fable, as nearly full too, and only switch to an account with room in it",
+			"把单个模型（如 Fable）的周额度也计入阈值，并且只切换到该额度仍有余量的账号"), false)
 	t.add = systray.AddMenuItem(tr("Add account…", "添加账号…"),
 		tr("Restart Claude on its sign-in screen, your current account is kept", "重启 Claude 并打开登录页面，当前账号会保留"))
 	t.importNow = systray.AddMenuItem(tr("Import chats from all accounts", "导入所有账号的聊天"),
@@ -102,6 +106,8 @@ func (t *tray) onReady() {
 				t.s.setAuto(!t.auto.Checked())
 			case <-t.spend.ClickedCh:
 				t.s.setSpendWeekly(!t.spend.Checked())
+			case <-t.model.ClickedCh:
+				t.s.setModelLimit(!t.model.Checked())
 			case <-t.add.ClickedCh:
 				go t.s.run(tr("Add account", "添加账号"), t.s.addAccount)
 			case <-t.importNow.ClickedCh:
@@ -219,6 +225,7 @@ func (t *tray) render() {
 
 	setChecked(t.auto, snap.AutoSwitch)
 	setChecked(t.spend, snap.SpendWeekly)
+	setChecked(t.model, snap.ModelLimit)
 	for i, item := range t.thresholds {
 		setChecked(item, thresholds[i] == snap.Threshold)
 	}
@@ -273,6 +280,14 @@ func usageText(a Account, threshold float64, now time.Time) string {
 	parts[0] += resetPart(u.Session, u.SessionReset, threshold, now)
 	// The weekly reset is always shown: it decides how much of the week is left to use.
 	parts[1] += resetPart(u.Weekly, u.WeeklyReset, threshold, now)
+	if u.ModelName != "" {
+		// It resets with the week, so the time is only said once it blocks.
+		part := fmt.Sprintf("%s %.0f%%", u.ModelName, u.Model)
+		if u.Model >= threshold {
+			part += resetPart(u.Model, u.ModelReset, threshold, now)
+		}
+		parts = append(parts, part)
+	}
 	return strings.Join(parts, " · ")
 }
 

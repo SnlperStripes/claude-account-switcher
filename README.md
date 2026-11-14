@@ -115,14 +115,15 @@ From then on, click an account to switch. With only one account, step 1 is all t
 
 ## Auto-switch
 
-Two toggles in the menu, both off until you turn them on:
+Three toggles in the menu, all off until you turn them on:
 
 - **Auto-switch** moves Claude to the account with the most room left once the active one is nearly full.
 - **Auto-switch to use up expiring weekly** moves Claude to an account whose weekly limit resets soon with most of it unused, so that usage is not lost.
+- **Auto-switch on a model's weekly limit too** counts the weekly limit of one model, such as Fable, as a limit of its own. The menu always shows that limit next to 5h and week when the plan has one. With the toggle on, Auto-switch also acts when it is nearly full, and both kinds of switch only go to an account with room in it. With several such limits on one account, the fullest counts.
 
 A switch restarts Claude. A reply that is being written at that moment stops, and Claude picks it up again on the other account, see [Chats that were working](#chats-that-were-working).
 
-Anthropic's terms do not forbid having more than one account. They do forbid "bypassing any of our systems or protective measures". Whether automatic switching fits how you use your accounts is your call, which is why both toggles are off until you turn them on.
+Anthropic's terms do not forbid having more than one account. They do forbid "bypassing any of our systems or protective measures". Whether automatic switching fits how you use your accounts is your call, which is why all toggles are off until you turn them on.
 
 <details>
 <summary><b>When Auto-switch acts</b></summary>

@@ -44,6 +44,9 @@ type State struct {
 	SpendWeekly bool      `json:"spendWeekly"`
 	LastSwitch  time.Time `json:"lastSwitch"`
 	HandSwitch  time.Time `json:"handSwitch"`
+	// ModelLimit counts the weekly limit of one model as a limit of its own:
+	// nearly full switches away, and only to an account with room in it.
+	ModelLimit bool `json:"modelLimit,omitempty"`
 	// Why the last switch happened, and the account it left.
 	LastCause switchCause `json:"lastCause,omitempty"`
 	LastFrom  string      `json:"lastFrom,omitempty"`
@@ -238,7 +241,7 @@ func (s *switcher) check(ctx context.Context) (string, func() error) {
 		every := idleEvery
 		if a.UUID == active {
 			every = activeEvery
-			if a.Usage != nil && a.Usage.current(now).peak() >= hotAt {
+			if a.Usage != nil && a.Usage.current(now).load(s.st.ModelLimit) >= hotAt {
 				every = hotEvery
 			}
 		}
@@ -371,10 +374,11 @@ func (s *switcher) autoTarget(running bool, lastChat, now time.Time) (*Account, 
 	if !running || cur == nil || cur.Usage == nil || now.Sub(cur.Usage.CheckedAt) > activeFresh || now.Sub(s.st.LastSwitch) < autoCooldown {
 		return nil, byHand
 	}
-	if s.st.AutoSwitch && cur.Usage.current(now).peak() >= s.st.Threshold {
+	model := s.st.ModelLimit
+	if s.st.AutoSwitch && cur.Usage.current(now).load(model) >= s.st.Threshold {
 		var best *Account
 		for _, a := range s.st.Accounts {
-			if s.usable(a, cur, now) && (best == nil || a.Usage.current(now).peak() < best.Usage.current(now).peak()) {
+			if s.usable(a, cur, now) && (best == nil || a.Usage.current(now).load(model) < best.Usage.current(now).load(model)) {
 				best = a
 			}
 		}
@@ -401,7 +405,7 @@ func (s *switcher) autoTarget(running bool, lastChat, now time.Time) (*Account, 
 // well below the threshold. Callers hold s.mu.
 func (s *switcher) usable(a, cur *Account, now time.Time) bool {
 	return a != cur && a.Usage != nil && a.Problem == "" && now.Sub(a.Usage.CheckedAt) <= idleFresh &&
-		a.Usage.current(now).peak() < s.st.Threshold-autoHeadroom
+		a.Usage.current(now).load(s.st.ModelLimit) < s.st.Threshold-autoHeadroom
 }
 
 // spendable says whether a's week should be used up first: it resets soon
@@ -656,6 +660,14 @@ func (s *switcher) setSpendWeekly(on bool) {
 	s.onChange()
 }
 
+func (s *switcher) setModelLimit(on bool) {
+	s.mu.Lock()
+	s.st.ModelLimit = on
+	s.saveState()
+	s.mu.Unlock()
+	s.onChange()
+}
+
 func (s *switcher) setThreshold(t float64) {
 	s.mu.Lock()
 	s.st.Threshold = t
@@ -670,6 +682,7 @@ type snapshot struct {
 	Active      string
 	AutoSwitch  bool
 	SpendWeekly bool
+	ModelLimit  bool
 	Threshold   float64
 	Status      string
 	Note        string
@@ -681,7 +694,7 @@ type snapshot struct {
 func (s *switcher) snapshot() snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	snap := snapshot{Active: s.active, AutoSwitch: s.st.AutoSwitch, SpendWeekly: s.st.SpendWeekly, Threshold: s.st.Threshold,
+	snap := snapshot{Active: s.active, AutoSwitch: s.st.AutoSwitch, SpendWeekly: s.st.SpendWeekly, ModelLimit: s.st.ModelLimit, Threshold: s.st.Threshold,
 		Status: s.status, Note: s.autoNote(time.Now()), Busy: s.busy.Load()}
 	if !s.st.NoUpdateCheck && newerVersion(s.st.LatestVersion, version) {
 		snap.Update = s.st.LatestVersion
