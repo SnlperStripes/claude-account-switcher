@@ -254,6 +254,12 @@ claude-account-switcher -status
 
 Prints every saved account with its usage and exits.
 
+```
+claude-account-switcher -version
+```
+
+Prints the version and exits.
+
 ## Build
 
 Go 1.26 or newer.

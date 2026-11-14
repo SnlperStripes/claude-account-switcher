@@ -27,7 +27,13 @@ func main() {
 		os.Exit(runThresholdDialog())
 	}
 	status := flag.Bool("status", false, "print accounts and usage, then exit")
+	showVersion := flag.Bool("version", false, "print the version, then exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("claude-account-switcher %s\n", version)
+		return
+	}
 
 	// The home folder, because the Store app redirects AppData for everything
 	// it starts but leaves the home folder alone.
