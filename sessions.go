@@ -266,8 +266,11 @@ func takeCutChats(root, account, org string, since time.Time, running map[string
 // chat that sat this long on an open turn is waiting for someone anyway.
 const runningWithin = 30 * time.Minute
 
-// runningChats returns the CLI session IDs of the chats whose turn is open,
-// from the transcripts the CLI keeps in projectsDir/<folder>/<id>.jsonl.
+// runningChats returns the CLI session IDs of the chats at work, from the
+// transcripts the CLI keeps in projectsDir/<folder>/<id>.jsonl: the chats
+// whose turn is open and the ones that ended their turn to wait for a
+// background agent. The quit stops that agent too, and then nothing starts
+// the chat's next turn.
 func runningChats(projectsDir string, now time.Time) map[string]bool {
 	running := map[string]bool{}
 	paths, _ := filepath.Glob(filepath.Join(projectsDir, "*", "*.jsonl"))
@@ -280,7 +283,35 @@ func runningChats(projectsDir string, now time.Time) map[string]bool {
 			running[strings.TrimSuffix(filepath.Base(p), ".jsonl")] = true
 		}
 	}
+	metas, _ := filepath.Glob(filepath.Join(projectsDir, "*", "*", "subagents", "agent-*.meta.json"))
+	for _, m := range metas {
+		chat := filepath.Base(filepath.Dir(filepath.Dir(m)))
+		if running[chat] {
+			continue
+		}
+		info, err := os.Stat(strings.TrimSuffix(m, ".meta.json") + ".jsonl")
+		if err != nil || now.Sub(info.ModTime()) > runningWithin {
+			continue
+		}
+		if agentUnfinished(m) {
+			running[chat] = true
+		}
+	}
 	return running
+}
+
+// agentUnfinished reads the note the CLI keeps next to a subagent's
+// transcript, which gets "finished": true when the agent is done. A note
+// that cannot be read counts as finished.
+func agentUnfinished(metaPath string) bool {
+	data, err := os.ReadFile(metaPath)
+	if err != nil {
+		return false
+	}
+	var meta struct {
+		Finished bool `json:"finished"`
+	}
+	return json.Unmarshal(data, &meta) == nil && !meta.Finished
 }
 
 func readTail(path string, n int64) []byte {
