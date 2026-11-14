@@ -53,6 +53,27 @@ func TestRunningChats(t *testing.T) {
 	}
 }
 
+func TestRunningChatsCountsBackgroundAgents(t *testing.T) {
+	dir := t.TempDir()
+	at := time.Now()
+	done := `{"type":"assistant","message":{"stop_reason":"end_turn"}}`
+	agent := func(chat, meta string, age time.Duration) {
+		write(t, filepath.Join(dir, "D--proj", chat+".jsonl"), done)
+		base := filepath.Join(dir, "D--proj", chat, "subagents", "agent-a1")
+		write(t, base+".meta.json", meta)
+		write(t, base+".jsonl", `{"type":"assistant","isSidechain":true,"message":{"stop_reason":"tool_use"}}`)
+		os.Chtimes(base+".jsonl", at.Add(-age), at.Add(-age))
+	}
+	agent("waiting", `{"requestShape":"background"}`, time.Minute)
+	agent("finished", `{"requestShape":"background","finished":true}`, time.Minute)
+	agent("stale", `{"requestShape":"background"}`, 2*runningWithin)
+	agent("unreadable", `{"requestShape":`, time.Minute)
+	got := runningChats(dir, at)
+	if len(got) != 1 || !got["waiting"] {
+		t.Fatalf("running = %v, want only waiting", got)
+	}
+}
+
 func TestTakeCutChatsMarksRunningChat(t *testing.T) {
 	root := t.TempDir()
 	dst := filepath.Join(root, "b", "ob", "local_one.json")
