@@ -320,6 +320,26 @@ No. Tokens stay encrypted exactly as Claude stored them, and the only server the
 **How do I update?**
 The menu says so when a new version is out; click it and the switcher updates itself and restarts. Or download the new file and start it, it replaces the running one. With winget, run `winget upgrade SnlperStripes.ClaudeAccountSwitcher`. Your accounts and settings stay in the data folder.
 
+## Troubleshooting
+
+**Where is the log?**
+The switcher writes `switcher.log` in its data folder, `~/.claude-account-switcher` (`%USERPROFILE%\.claude-account-switcher` on Windows). **Open data folder** in the tray menu opens that folder. When the log is larger than 1 MB at start, it starts over.
+
+**How do I see every account at a glance?**
+Run `claude-account-switcher -status`. It prints one line per saved account with its 5-hour and weekly usage, marks the signed-in account with `*`, and exits. It only reports; a switch that is due is left to the tray.
+
+**A switch failed after a Claude update.**
+Before a switch, the switcher copies `config.json` and the cookie store into the `backups/` folder in the data folder. If the change to Claude's files fails, it restores that backup and shows the error at the top of the tray menu. The same error is in `switcher.log`. The last 10 backups are kept.
+
+**What makes a useful bug report?**
+The Claude desktop version (Help → About), the switcher version (the first line of `switcher.log` names it), the last 30 lines of `switcher.log` around the problem, and what you did, what you expected and what happened instead. Do not paste tokens, cookies or `config.json`.
+
+**The account did not change after switching.**
+A switch closes Claude, replaces the sign-in while it is closed, and starts Claude again. A window that stays open never changes account. If the menu item of the account is already checked, clicking it does nothing. `-status` marks the account the switcher reads from Claude's config.
+
+**The model did not change after switching.**
+The switcher does not change the model. It saves and restores only the three sign-in entries in `config.json` and the cookie files; every other entry in `config.json` is left as Claude had it.
+
 ## Caveats
 
 This relies on how the Claude desktop app stores its files today, not on a published interface. An app update can change that. When it does, the switcher fails loudly, restores its backup and says so in the menu. It does not guess.
