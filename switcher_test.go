@@ -460,3 +460,78 @@ func TestCookieFilesFollowAppLayout(t *testing.T) {
 		t.Fatalf("with Network/: %q, want %q", got, want)
 	}
 }
+
+// Chromium writes cookie changes to its store in batches, at the latest
+// 30 seconds after a change. A sign-in is only on disk once the store was
+// written after it, or that much time has passed (#58).
+func TestCookiesSaved(t *testing.T) {
+	d := desktop{dir: t.TempDir()}
+	signedIn := time.Now().Truncate(time.Second)
+	cookies := d.cookieFiles()[0]
+
+	if cookiesSaved(d, signedIn, signedIn.Add(5*time.Second)) {
+		t.Fatal("no cookie store yet, but called saved")
+	}
+	write(t, cookies, "before the sign-in")
+	os.Chtimes(cookies, signedIn.Add(-2*time.Second), signedIn.Add(-2*time.Second))
+	if cookiesSaved(d, signedIn, signedIn.Add(5*time.Second)) {
+		t.Fatal("store last written before the sign-in, but called saved")
+	}
+	// The journal alone can be written before the store itself.
+	write(t, d.cookieFiles()[1], "journal")
+	if cookiesSaved(d, signedIn, signedIn.Add(5*time.Second)) {
+		t.Fatal("only the journal is newer, but called saved")
+	}
+	if !cookiesSaved(d, signedIn, signedIn.Add(cookieCommitEvery+cookieSlack)) {
+		t.Fatal("longer than Chromium keeps changes unsaved, still waiting")
+	}
+	os.Chtimes(cookies, signedIn.Add(3*time.Second), signedIn.Add(3*time.Second))
+	if !cookiesSaved(d, signedIn, signedIn.Add(5*time.Second)) {
+		t.Fatal("store written after the sign-in, still waiting")
+	}
+}
+
+func TestNoticeSignIn(t *testing.T) {
+	s := newSwitcher(t.TempDir())
+	t0 := time.Now()
+	s.noticeSignIn("acc-a", t0)
+	s.active = "acc-a"
+	if !s.signedInAt.IsZero() {
+		t.Fatal("the account Claude already had at the first look counted as a new sign-in")
+	}
+	s.noticeSignIn("acc-a", t0.Add(5*time.Second))
+	if !s.signedInAt.IsZero() {
+		t.Fatal("the same account counted as a new sign-in")
+	}
+	s.noticeSignIn("", t0.Add(10*time.Second))
+	s.active = ""
+	if !s.signedInAt.IsZero() {
+		t.Fatal("signing out counted as a sign-in")
+	}
+	s.noticeSignIn("acc-b", t0.Add(15*time.Second))
+	if !s.signedInAt.Equal(t0.Add(15 * time.Second)) {
+		t.Fatalf("sign-in of acc-b at %v, recorded %v", t0.Add(15*time.Second), s.signedInAt)
+	}
+}
+
+// The restart that imports chats after Add account must keep the new sign-in,
+// or the account shows in the menu with nothing to switch back to (#58).
+func TestImportSavesNewSignIn(t *testing.T) {
+	s := newSwitcher(t.TempDir())
+	s.appDir = t.TempDir()
+	d := s.app()
+	write(t, d.configPath(), strings.Replace(sampleConfig, "acc-a", "acc-new", 1))
+	write(t, d.cookieFiles()[0], "cookies-new")
+	s.st.Accounts = []*Account{{UUID: "acc-new", Org: "org"}}
+
+	if err := s.importInto("acc-new"); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, filepath.Join(s.profileDir("acc-new"), "Cookies")); got != "cookies-new" {
+		t.Fatalf("saved cookies = %q", got)
+	}
+	cache, err := tokenCacheOf(filepath.Join(s.profileDir("acc-new"), "config.json"))
+	if err != nil || cache != "djEwAAAA" {
+		t.Fatalf("saved token cache = %q, %v", cache, err)
+	}
+}

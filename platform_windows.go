@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -211,7 +212,7 @@ var appIDPattern = regexp.MustCompile(`<Application\s+Id="([^"]+)"`)
 
 // startDesktop launches the app. Store (MSIX) installs cannot be started from
 // their exe, they are started through their app user model ID instead.
-func startDesktop(exe string) error {
+func startDesktop(exe string, _ ...string) error {
 	if aumid := storeAppID(exe); aumid != "" {
 		return start("explorer.exe", `shell:AppsFolder\`+aumid)
 	}
@@ -356,3 +357,12 @@ func systemLanguages() []string {
 	}
 	return langs
 }
+
+func desktopRestartLaunch() (string, []string) { return "", nil }
+
+// instanceAddress is where the single-instance lock listens.
+func instanceAddress() (string, string) { return "tcp", instancePort }
+
+// sameUser reports whether the peer on the lock may make this switcher
+// quit. A loopback port carries no user, so every caller may.
+func sameUser(net.Conn) bool { return true }

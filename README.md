@@ -8,18 +8,24 @@ English | [简体中文](README.zh-CN.md)
 [![Downloads](https://img.shields.io/github/downloads/SnlperStripes/claude-account-switcher/total)](https://github.com/SnlperStripes/claude-account-switcher/releases)
 [![Tests](https://github.com/SnlperStripes/claude-account-switcher/actions/workflows/test.yml/badge.svg)](https://github.com/SnlperStripes/claude-account-switcher/actions/workflows/test.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
-![Windows | macOS](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)
+![Windows | macOS | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 
-**Hit your limit on one Claude account, keep working on the next one. One click, no email code.**
+**See your Claude usage in the tray. Hit the limit, keep working on your next account. One click, no email code.**
 
-A tray tool for the Claude desktop app. It swaps the signed-in account in about ten seconds,
-carries your Claude Code chats across, and shows the live usage of every account you own.
+A tray tool for the Claude desktop app, for one account or several.
+
+**Several accounts:** it swaps the signed-in account in about ten seconds, carries your Claude Code chats across
+and shows the live usage of every account side by side.
+
+**One account:** it is a usage monitor. The tray icon is a ring that fills with your 5-hour usage,
+and the menu shows your 5-hour and weekly usage with the time each one resets.
 
 **Your sign-ins never leave your machine.** Tokens stay encrypted exactly as Claude stored them,
 and the only server they ever go to is `api.anthropic.com`.
 
 [![Download for Windows](https://img.shields.io/badge/Download_for_Windows-.exe-2ea44f?style=for-the-badge)](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-windows-amd64.exe)
 [![Download for macOS](https://img.shields.io/badge/Download_for_macOS-universal-555555?style=for-the-badge)](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-macos)
+[![Download for Linux](https://img.shields.io/badge/Download_for_Linux-x64,_beta-555555?style=for-the-badge)](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-linux-amd64)
 
 <img src="assets/demo.gif" width="720" alt="Demo: the 5-hour limit hits, another account is picked from the tray, Claude restarts on it and the same chat keeps going">
 
@@ -31,7 +37,9 @@ Unofficial. Not affiliated with or endorsed by Anthropic.
 
 ## The problem
 
-You have two Claude accounts because one runs out. Switching between them in the desktop app goes like this:
+Claude only shows your usage when you go looking for it. To see how much of your 5-hour or weekly limit is left, you open the usage page in Claude's settings, and the number is out of date the moment you close it.
+
+With two accounts, because one runs out, it gets worse. Switching between them in the desktop app goes like this:
 
 1. **Sign out.** That throws the sign-in away. Next time you need it, you start from zero.
 2. **Sign in with the other address and wait for the email code.** With a private relay address, that means opening another app to find it.
@@ -48,13 +56,13 @@ Three of those four steps are pure overhead, and the fourth is a guess.
 
 **Brings your chats along.** Before Claude starts, the switcher copies the chat list entries of your other accounts into the one you switch to. Open the chat you were in and keep going. Projects come along too, so chats stay grouped in them. Chats you deleted stay deleted.
 
-**Picks up where Claude stopped.** A switch restarts Claude, and a chat that was working at that moment would just stand still. The switcher notices which chats were in the middle of a reply and asks in a small window which of them should go on. Claude then continues the checked ones on the new account by itself.
+**Shows your usage at a glance, with one account or many.** The tray icon is a ring that fills with the active account's 5-hour usage: green, orange from 75%, red at your switch threshold. Hover it for the account and its numbers. The menu shows 5-hour and weekly usage for every saved account, live, with when each limit resets. A future 5-hour reset is shown even below the switch threshold, for example `5h 20%, resets 21:20`. At or above the threshold it reads `5h 98% until 21:20`. Times use a 24-hour clock in your local timezone.
 
-**Shows usage for all accounts at once.** 5-hour and weekly usage for every saved account, live, with when each limit resets. A future 5-hour reset is shown even below the switch threshold, for example `5h 20%, resets 21:20`. At or above the threshold it reads `5h 98% until 21:20`. Times use a 24-hour clock in your local timezone. The tray icon is a ring that fills with the active account's 5-hour usage: green, orange from 75%, red at your switch threshold.
+**Picks up where Claude stopped.** A switch restarts Claude, and a chat that was working at that moment would just stand still. The switcher notices which chats were in the middle of a reply and asks in a small window which of them should go on. Claude then continues the checked ones on the new account by itself.
 
 **Can switch on its own.** Off by default. Turn it on and the switcher moves Claude to the account with the most room left once the active one passes 96%, or 90, 94, 98 or any whole percentage you type in under Custom…. A second toggle moves it to an account whose weekly limit is about to reset mostly unused, so that usage is not lost.
 
-**Speaks Chinese.** When Windows or macOS shows Simplified Chinese first, the menu and windows are in Chinese too. See [Language](#language).
+**Speaks Chinese.** When Windows, macOS or Linux shows Simplified Chinese first, the menu and windows are in Chinese too. See [Language](#language).
 
 ## Measured
 
@@ -76,7 +84,11 @@ Download the file for your platform and run it. No installer, no runtime, one fi
   winget install SnlperStripes.ClaudeAccountSwitcher
   ```
 - **macOS:** [`claude-account-switcher-macos`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-macos) (universal). The first start asks once whether it may read "Claude Safe Storage" from your keychain; that is the key Claude uses to encrypt its sign-in. Builds in CI, not yet tested on a real Mac. Reports welcome.
-- **Linux:** there is no official Claude desktop app, so there is nothing to switch.
+- **Linux (beta), x64:** [`claude-account-switcher-linux-amd64`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-linux-amd64). On arm64, use [`claude-account-switcher-linux-arm64`](https://github.com/SnlperStripes/claude-account-switcher/releases/latest/download/claude-account-switcher-linux-arm64) instead. It needs the official Claude Desktop for Linux beta (Ubuntu 22.04+ or Debian 12+, installed from Anthropic's apt repository as `claude-desktop`, see [Claude's Linux guide](https://code.claude.com/docs/en/desktop-linux)). Then run `chmod +x claude-account-switcher-linux-amd64` in the folder you saved it to, and start it.
+  - The tray uses the AppIndicator (StatusNotifierItem) protocol, which Ubuntu's own desktop and KDE Plasma support. On plain GNOME, install the "AppIndicator and KStatusNotifierItem Support" extension.
+  - The custom threshold and the window that asks which chats continue use `zenity` or `kdialog`, whichever is installed.
+  - The sign-in key is kept in the desktop keyring (GNOME Keyring or KDE Wallet). Usage needs the keyring unlocked, which it normally is after login.
+  - Beta: the port's author ran it on Ubuntu 24.04 with the official Claude Desktop beta. Debian, other Ubuntu versions and other desktops have not been tried yet, reports are welcome.
 
 Then turn on **Start at login** in its menu.
 
@@ -88,7 +100,7 @@ The builds are not code-signed, so the first start gets one warning:
   chmod +x claude-account-switcher-macos && xattr -d com.apple.quarantine claude-account-switcher-macos
   ```
 
-Every download has a `.sha256` file next to it, so you can check it is the file CI built.
+Every download has a `.sha256` file next to it, so you can check it is the file CI built. Signing plans and status: [Code signing policy](CODE_SIGNING.md). What the switcher sends where: [Privacy policy](PRIVACY.md).
 
 ## First run
 
@@ -96,21 +108,22 @@ Every download has a `.sha256` file next to it, so you can check it is the file 
 2. Choose **Add account…**. Claude restarts on its sign-in screen. Your first account is kept.
 3. Sign in with the second account. The switcher notices, restarts Claude once more, and the chats of your other account show up.
 
-From then on, click an account to switch.
+From then on, click an account to switch. With only one account, step 1 is all there is: the ring and the menu show its usage from then on, and you can add a second account any time.
 
 > [!IMPORTANT]
 > **Never use Sign out in Claude to change accounts.** Signing out can end that sign-in on Anthropic's side, and the switcher's saved copy stops working. The account then shows "signed out, add it again". Use **Add account…** to sign it in once more.
 
 ## Auto-switch
 
-Two toggles in the menu, both off until you turn them on:
+Three toggles in the menu, all off until you turn them on:
 
 - **Auto-switch** moves Claude to the account with the most room left once the active one is nearly full.
 - **Auto-switch to use up expiring weekly** moves Claude to an account whose weekly limit resets soon with most of it unused, so that usage is not lost.
+- **Auto-switch on a model's weekly limit too** counts the weekly limit of one model, such as Fable, as a limit of its own. The menu always shows that limit next to 5h and week when the plan has one. With the toggle on, Auto-switch also acts when it is nearly full, and both kinds of switch only go to an account with room in it. With several such limits on one account, the fullest counts.
 
 A switch restarts Claude. A reply that is being written at that moment stops, and Claude picks it up again on the other account, see [Chats that were working](#chats-that-were-working).
 
-Anthropic's terms do not forbid having more than one account. They do forbid "bypassing any of our systems or protective measures". Whether automatic switching fits how you use your accounts is your call, which is why both toggles are off until you turn them on.
+Anthropic's terms do not forbid having more than one account. They do forbid "bypassing any of our systems or protective measures". Whether automatic switching fits how you use your accounts is your call, which is why all toggles are off until you turn them on.
 
 <details>
 <summary><b>When Auto-switch acts</b></summary>
@@ -174,7 +187,7 @@ Right before Claude quits, the switcher reads the end of every Claude Code conve
 
 For each chat you keep checked, the switcher writes the mark Claude itself leaves when it quits during a reply (`interruptedByQuitAt`) into that chat's entry of the account you switch to, and removes the mark from the other accounts' copies, so the chat is not continued twice. Claude continues marked chats for 24 hours after the restart; a chat it cannot reach in that time simply stays where it stopped.
 
-On Windows the window is drawn with WebView2, which comes with Windows 11 and current Windows 10. Without it, a plain Windows dialog asks the same question. On macOS it uses WebKit; like the rest of the macOS build, this has not been tested on a real Mac yet.
+On Windows the window is drawn with WebView2, which comes with Windows 11 and current Windows 10. Without it, a plain Windows dialog asks the same question. On macOS it uses WebKit; like the rest of the macOS build, this has not been tested on a real Mac yet. On Linux it is a `zenity` or `kdialog` dialog.
 
 </details>
 
@@ -206,6 +219,7 @@ Claude keeps its sign-in in two places inside its data folder:
 | Windows, Microsoft Store app | `%LOCALAPPDATA%\Claude-Data\claude_<id>` since 2.42304, before that `%LOCALAPPDATA%\Packages\Claude_<id>\LocalCache\Roaming\Claude` |
 | Windows, direct download | `%APPDATA%\Claude` |
 | macOS | `~/Library/Application Support/Claude` |
+| Linux, official Claude Desktop | `~/.config/Claude` |
 
 | What | Where | What the switcher does with it |
 | --- | --- | --- |
@@ -222,7 +236,7 @@ Claude keeps its sign-in in two places inside its data folder:
 
 Before each switch, `config.json` and the cookie store are backed up. The last 10 backups are kept. If any step fails, the backup goes back and the error shows at the top of the menu. With the terminal option on, both Claude Code files are backed up to `cli-backups` before they change, the last 10 kept, and a failed swap puts back what it changed.
 
-**Usage.** The saved token cache is decrypted in memory with Claude's own key (DPAPI on Windows, the keychain on macOS). The switcher then asks `api.anthropic.com` for each account's profile and usage, the same endpoints Claude and Claude Code use themselves. The active account is checked every two minutes, every minute from 85%, the others every ten. That endpoint is rate-limited per account and Claude polls it too, so after a `429` the switcher waits as long as the server asks, or backs off up to 30 minutes, and keeps showing the last numbers meanwhile. Claude's tokens last about a month, so a saved account keeps showing live usage without being signed in.
+**Usage.** The saved token cache is decrypted in memory with Claude's own key (DPAPI on Windows, the keychain on macOS, the desktop keyring on Linux). The switcher then asks `api.anthropic.com` for each account's profile and usage, the same endpoints Claude and Claude Code use themselves. The active account is checked every two minutes, every minute from 85%, the others every ten. That endpoint is rate-limited per account and Claude polls it too, so after a `429` the switcher waits as long as the server asks, or backs off up to 30 minutes, and keeps showing the last numbers meanwhile. Claude's tokens last about a month, so a saved account keeps showing live usage without being signed in.
 
 **Updates.** Once a day the switcher asks GitHub for the version number of the latest release. Nothing about you or your accounts goes along. When a newer version is out, the top of the menu says so. A click downloads it from the GitHub release, checks it against the published SHA-256, puts it in place of the running file and restarts on it. A download the switcher makes itself gets no SmartScreen or Gatekeeper warning. If that fails, the download page opens instead. Starting a newer version by hand also works: it asks the running one to quit and takes over. With winget, `winget upgrade SnlperStripes.ClaudeAccountSwitcher` does the same. To never contact GitHub, quit the switcher, add `"noUpdateCheck": true` to `state.json` and start it again.
 
@@ -243,7 +257,7 @@ Before each switch, `config.json` and the cookie store are backed up. The last 1
 
 ## Language
 
-The menu and windows follow the first display language of the system: Simplified Chinese (zh-CN, zh-SG, zh-Hans) gets Chinese, everything else English. The log stays in English.
+The menu and windows follow the first display language of the system: Simplified Chinese (zh-CN, zh-SG, zh-Hans) gets Chinese, everything else English. On Linux the language comes from the `LANGUAGE` and then `LANG` environment variables, so `LANG=zh_CN.UTF-8` gives Chinese. The log stays in English.
 
 To pick one for good, quit the switcher, add `"language": "zh-CN"` or `"language": "en"` to `state.json` in the data folder and start it again. It survives updates and the start at login.
 
@@ -255,6 +269,12 @@ claude-account-switcher -status
 
 Prints every saved account with its usage and exits.
 
+```
+claude-account-switcher -version
+```
+
+Prints the version and exits.
+
 ## Build
 
 Go 1.26 or newer.
@@ -263,9 +283,10 @@ Go 1.26 or newer.
 go test ./...
 go build -ldflags "-H=windowsgui -s -w" -o claude-account-switcher.exe .   # Windows
 CGO_ENABLED=1 go build -o claude-account-switcher .                        # macOS
+CGO_ENABLED=0 go build -ldflags "-s -w" -o claude-account-switcher .       # Linux
 ```
 
-Dependencies beyond the standard library: [`fyne.io/systray`](https://github.com/fyne-io/systray) for the tray icon, and for the window that asks which chats continue [`jchv/go-webview2`](https://github.com/jchv/go-webview2) on Windows and [`webview/webview_go`](https://github.com/webview/webview_go) on macOS. On Windows also `golang.org/x/sys`.
+Dependencies beyond the standard library: [`fyne.io/systray`](https://github.com/fyne-io/systray) for the tray icon, and for the window that asks which chats continue [`jchv/go-webview2`](https://github.com/jchv/go-webview2) on Windows and [`webview/webview_go`](https://github.com/webview/webview_go) on macOS. On Windows also `golang.org/x/sys`. On Linux [`godbus/dbus`](https://github.com/godbus/dbus) reads the sign-in key from the desktop keyring.
 
 ## FAQ
 
@@ -284,6 +305,21 @@ It stops, because Claude has to restart. Before Claude starts again, the switche
 **How do I see the usage of all my Claude accounts at once?**
 The tray menu shows 5-hour and weekly usage of every saved account, live, with when each limit resets. `claude-account-switcher -status` prints the same in a terminal.
 
+**Is it useful with only one Claude account?**
+Yes, as a usage monitor. Start it while you are signed in to the Claude desktop app and it picks the account up by itself, no setup. The tray ring and the menu then show that account's 5-hour and weekly usage. The auto-switch toggles only act once a second account is added.
+
+**How do I see my Claude usage in the Windows system tray?**
+Start the switcher. Its tray icon is a ring that fills with your 5-hour usage and turns orange from 75%, red at the threshold under **Auto-switch at** (96% by default). Hover it for the numbers, open the menu for the 5-hour and weekly limits with reset times. Windows may put a new tray icon into the overflow area, so pin it to the taskbar in the taskbar settings to keep it in sight.
+
+**Can I see my Claude usage in the macOS menu bar?**
+The macOS build puts the same ring in the menu bar, but nobody has tested it on a real Mac yet. A [test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml) helps.
+
+**How do I track the Claude 5-hour limit and weekly limit?**
+The menu line of each account shows both, for example `5h 42%, resets 19:00 · week 18%, resets Mon 09:00`. The signed-in account is checked every two minutes, every minute from 85%. These are the same numbers Claude and Claude Code read from `api.anthropic.com` for your plan.
+
+**Do I need the Claude desktop app?**
+Yes. The switcher reads the sign-in of the Claude desktop app, on Windows or macOS. If you only use the `claude` command in a terminal, it has nothing to read.
+
 **What can I do when I hit the Claude usage limit?**
 Switch to an account that has room left, or let **Auto-switch** do it for you shortly before the limit.
 
@@ -292,6 +328,9 @@ Yes. It finds the Store app's real data folder and works with the direct downloa
 
 **Does it work on macOS?**
 It builds for macOS (universal) in CI, but nobody has tested it on a real Mac yet. A [test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml) helps.
+
+**Does it work on Linux?**
+Yes, as a beta since v0.4.0. The port's author ran it on Ubuntu 24.04 (x64); other distributions and desktops have not been tried yet. Builds for x64 and arm64 come with every release. It needs the official Claude Desktop for Linux beta, see [Install](#install). A [test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=linux_report.yml) helps.
 
 **Does it switch the Claude Code CLI in the terminal?**
 Yes, if you turn it on, on Windows and Linux. With **Switch Claude Code in the terminal too** checked, every switch also moves the `claude` command to the same account, so the app and the terminal stay on one account. It is off by default and each account needs one `/login` in the terminal first, see [Claude Code in the terminal](#claude-code-in-the-terminal). Not on macOS yet.
@@ -302,6 +341,26 @@ No. Tokens stay exactly as Claude and Claude Code stored them, and the only serv
 **How do I update?**
 The menu says so when a new version is out; click it and the switcher updates itself and restarts. Or download the new file and start it, it replaces the running one. With winget, run `winget upgrade SnlperStripes.ClaudeAccountSwitcher`. Your accounts and settings stay in the data folder.
 
+## Troubleshooting
+
+**Where is the log?**
+The switcher writes `switcher.log` in its data folder, `~/.claude-account-switcher` (`%USERPROFILE%\.claude-account-switcher` on Windows). **Open data folder** in the tray menu opens that folder. When the log is larger than 1 MB at start, it starts over.
+
+**How do I see every account at a glance?**
+Run `claude-account-switcher -status`. It prints one line per saved account with its 5-hour and weekly usage, marks the signed-in account with `*`, and exits. It only reports; a switch that is due is left to the tray.
+
+**A switch failed after a Claude update.**
+Before a switch, the switcher copies `config.json` and the cookie store into the `backups/` folder in the data folder. If the change to Claude's files fails, it restores that backup and shows the error at the top of the tray menu. The same error is in `switcher.log`. The last 10 backups are kept.
+
+**What makes a useful bug report?**
+The Claude desktop version (Help → About), the switcher version (the first line of `switcher.log` names it), the last 30 lines of `switcher.log` around the problem, and what you did, what you expected and what happened instead. Do not paste tokens, cookies or `config.json`.
+
+**The account did not change after switching.**
+A switch closes Claude, replaces the sign-in while it is closed, and starts Claude again. A window that stays open never changes account. If the menu item of the account is already checked, clicking it does nothing. `-status` marks the account the switcher reads from Claude's config.
+
+**The model did not change after switching.**
+The switcher does not change the model. It saves and restores only the three sign-in entries in `config.json` and the cookie files; every other entry in `config.json` is left as Claude had it.
+
 ## Caveats
 
 This relies on how the Claude desktop app stores its files today, not on a published interface. An app update can change that. When it does, the switcher fails loudly, restores its backup and says so in the menu. It does not guess.
@@ -310,8 +369,9 @@ This relies on how the Claude desktop app stores its files today, not on a publi
 
 Bug reports, ideas and pull requests are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md).
 Got a Mac? A [macOS test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=macos_report.yml) helps a lot, even if everything just worked.
+Running Linux? A [Linux test report](https://github.com/SnlperStripes/claude-account-switcher/issues/new?template=linux_report.yml) helps the same way.
 Found a security problem? Please report it privately, see [SECURITY.md](SECURITY.md).
-If the switcher saves you time, a star helps other people with more than one account find it.
+If the switcher saves you time, a star helps other Claude users find it.
 
 ## License
 

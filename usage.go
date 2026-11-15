@@ -20,11 +20,24 @@ type Usage struct {
 	SessionReset time.Time `json:"sessionReset"`
 	Weekly       float64   `json:"weekly"`
 	WeeklyReset  time.Time `json:"weeklyReset"`
-	CheckedAt    time.Time `json:"checkedAt"`
+	// The weekly limit of one model, the fullest when there are several.
+	// ModelName is empty on a plan without one.
+	Model      float64   `json:"model,omitempty"`
+	ModelName  string    `json:"modelName,omitempty"`
+	ModelReset time.Time `json:"modelReset,omitzero"`
+	CheckedAt  time.Time `json:"checkedAt"`
 }
 
 // peak is the fuller of the two limits.
 func (u Usage) peak() float64 { return max(u.Session, u.Weekly) }
+
+// load is peak, with the model's weekly limit counted when model is set.
+func (u Usage) load(model bool) float64 {
+	if model {
+		return max(u.peak(), u.Model)
+	}
+	return u.peak()
+}
 
 // current returns usage with windows that have reset since the last check set to zero.
 func (u Usage) current(now time.Time) Usage {
@@ -34,6 +47,9 @@ func (u Usage) current(now time.Time) Usage {
 	}
 	if !c.WeeklyReset.IsZero() && now.After(c.WeeklyReset) {
 		c.Weekly = 0
+	}
+	if !c.ModelReset.IsZero() && now.After(c.ModelReset) {
+		c.Model = 0
 	}
 	return c
 }
@@ -106,28 +122,57 @@ func fetchProfile(ctx context.Context, token string) (profile, error) {
 	return p, err
 }
 
-func fetchUsage(ctx context.Context, token string) (*Usage, error) {
-	type window struct {
-		Utilization float64 `json:"utilization"`
-		ResetsAt    string  `json:"resets_at"`
-	}
-	var body struct {
-		FiveHour *window `json:"five_hour"`
-		SevenDay *window `json:"seven_day"`
-	}
-	if err := apiGet(ctx, token, "/api/oauth/usage", &body); err != nil {
-		return nil, err
-	}
-	u := &Usage{CheckedAt: time.Now()}
-	if w := body.FiveHour; w != nil {
+// usageBody is the answer of /api/oauth/usage, as far as the switcher reads it.
+type usageBody struct {
+	FiveHour *usageWindow `json:"five_hour"`
+	SevenDay *usageWindow `json:"seven_day"`
+	// Limits lists every limit the app's usage card shows. Kind
+	// "weekly_scoped" is the weekly limit of one model.
+	Limits []struct {
+		Kind     string  `json:"kind"`
+		Percent  float64 `json:"percent"`
+		ResetsAt string  `json:"resets_at"`
+		Scope    *struct {
+			Model *struct {
+				DisplayName string `json:"display_name"`
+			} `json:"model"`
+		} `json:"scope"`
+	} `json:"limits"`
+}
+
+type usageWindow struct {
+	Utilization float64 `json:"utilization"`
+	ResetsAt    string  `json:"resets_at"`
+}
+
+func (b usageBody) usage(now time.Time) *Usage {
+	u := &Usage{CheckedAt: now}
+	if w := b.FiveHour; w != nil {
 		u.Session = w.Utilization
 		u.SessionReset, _ = time.Parse(time.RFC3339Nano, w.ResetsAt)
 	}
-	if w := body.SevenDay; w != nil {
+	if w := b.SevenDay; w != nil {
 		u.Weekly = w.Utilization
 		u.WeeklyReset, _ = time.Parse(time.RFC3339Nano, w.ResetsAt)
 	}
-	return u, nil
+	for _, l := range b.Limits {
+		if l.Kind != "weekly_scoped" || l.Scope == nil || l.Scope.Model == nil || l.Scope.Model.DisplayName == "" {
+			continue
+		}
+		if u.ModelName == "" || l.Percent > u.Model {
+			u.Model, u.ModelName = l.Percent, l.Scope.Model.DisplayName
+			u.ModelReset, _ = time.Parse(time.RFC3339Nano, l.ResetsAt)
+		}
+	}
+	return u
+}
+
+func fetchUsage(ctx context.Context, token string) (*Usage, error) {
+	var body usageBody
+	if err := apiGet(ctx, token, "/api/oauth/usage", &body); err != nil {
+		return nil, err
+	}
+	return body.usage(time.Now()), nil
 }
 
 // accessToken decrypts a saved oauth:tokenCacheV2 value and returns an

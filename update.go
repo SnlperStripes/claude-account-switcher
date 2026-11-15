@@ -120,11 +120,21 @@ var (
 
 // releaseAsset is the name of this platform's file in a release.
 func releaseAsset() string {
-	switch runtime.GOOS {
+	return assetFor(runtime.GOOS, runtime.GOARCH)
+}
+
+// assetFor is the name of the release file for goos and goarch, "" when
+// there is none.
+func assetFor(goos, goarch string) string {
+	switch goos {
 	case "windows":
 		return "claude-account-switcher-windows-amd64.exe"
 	case "darwin":
 		return "claude-account-switcher-macos"
+	case "linux":
+		if goarch == "amd64" || goarch == "arm64" {
+			return "claude-account-switcher-linux-" + goarch
+		}
 	}
 	return ""
 }

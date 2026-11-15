@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -53,7 +54,7 @@ func waitGone(timeout time.Duration) bool {
 	return false
 }
 
-func startDesktop(string) error {
+func startDesktop(string, ...string) error {
 	return exec.Command("open", "-a", "Claude").Run()
 }
 
@@ -121,3 +122,12 @@ func systemLanguages() []string {
 	}
 	return parseAppleLanguages(string(out))
 }
+
+func desktopRestartLaunch() (string, []string) { return "", nil }
+
+// instanceAddress is where the single-instance lock listens.
+func instanceAddress() (string, string) { return "tcp", instancePort }
+
+// sameUser reports whether the peer on the lock may make this switcher
+// quit. A loopback port carries no user, so every caller may.
+func sameUser(net.Conn) bool { return true }

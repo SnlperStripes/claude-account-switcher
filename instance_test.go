@@ -17,11 +17,11 @@ func TestInstanceHello(t *testing.T) {
 	addr := l.Addr().String()
 
 	for _, v := range []string{version, "0.0.1", "nightly"} {
-		if got := hello(addr, v); got != "stay" {
+		if got := hello("tcp", addr, v); got != "stay" {
 			t.Fatalf("hello from %s = %q, want stay", v, got)
 		}
 	}
-	if got := hello(addr, "99.0.0"); got != "quit" {
+	if got := hello("tcp", addr, "99.0.0"); got != "quit" {
 		t.Fatalf("hello from a newer version = %q, want quit", got)
 	}
 	select {
@@ -38,7 +38,7 @@ func TestInstanceHelloUnanswered(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	if got := hello(l.Addr().String(), version); got != "" {
+	if got := hello("tcp", l.Addr().String(), version); got != "" {
 		t.Fatalf("hello = %q from a switcher that does not answer", got)
 	}
 }

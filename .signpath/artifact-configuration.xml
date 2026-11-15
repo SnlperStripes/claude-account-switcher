@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Artifact configuration for the SignPath project, kept here for review.
+  SignPath reads its own copy, so a change here has to be made there too.
+  The build uploads the exe with actions/upload-artifact, which wraps it in
+  a zip, hence the zip-file root. The product name is enforced so only this
+  project's exe can be signed.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="claude-account-switcher-windows-amd64.exe" product-name="Claude Account Switcher">
+      <authenticode-sign/>
+    </pe-file>
+  </zip-file>
+</artifact-configuration>
