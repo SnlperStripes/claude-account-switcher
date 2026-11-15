@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"testing"
 	"time"
@@ -26,13 +28,41 @@ func preserveLogger(t *testing.T) {
 }
 
 // setupTestLog calls setupLog and closes the log file before TempDir cleanup,
-// which would otherwise fail on Windows while the handle is still open.
+// which would otherwise fail on Windows while the handle is still open. The
+// crash output holds its own copy of the handle, so it is reset as well.
 func setupTestLog(t *testing.T, path string) {
 	t.Helper()
 	before := log.Writer()
 	setupLog(path, false)
+	t.Cleanup(func() { debug.SetCrashOutput(nil, debug.CrashOptions{}) })
 	if f, ok := log.Writer().(*os.File); ok && f != before {
 		t.Cleanup(func() { f.Close() })
+	}
+}
+
+// TestSetupLogKeepsCrashes runs itself again in a child process that panics
+// after setupLog, then checks that the panic and its stack are in the log.
+func TestSetupLogKeepsCrashes(t *testing.T) {
+	if path := os.Getenv("SWITCHER_CRASH_LOG"); path != "" {
+		setupLog(path, false)
+		panic("test crash")
+	}
+
+	path := filepath.Join(t.TempDir(), "switcher.log")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestSetupLogKeepsCrashes$")
+	cmd.Env = append(os.Environ(), "SWITCHER_CRASH_LOG="+path)
+	if err := cmd.Run(); err == nil {
+		t.Fatal("child process did not crash")
+	}
+
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"panic: test crash", "goroutine ", "TestSetupLogKeepsCrashes"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("log does not contain %q:\n%s", want, got)
+		}
 	}
 }
 

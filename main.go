@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"time"
 
 	"fyne.io/systray"
@@ -82,6 +83,7 @@ func main() {
 
 // setupLog writes to switcher.log and starts it over once it passes 1 MB.
 // A tray app has no usable stderr on Windows, so only -status also prints there.
+// A panic or fatal error goes to the log too, or a crash would leave no trace.
 func setupLog(path string, console bool) {
 	flags := os.O_CREATE | os.O_WRONLY | os.O_APPEND
 	if info, err := os.Stat(path); err == nil && info.Size() > 1<<20 {
@@ -90,6 +92,9 @@ func setupLog(path string, console bool) {
 	f, err := os.OpenFile(path, flags, 0o600)
 	if err != nil {
 		return
+	}
+	if err := debug.SetCrashOutput(f, debug.CrashOptions{}); err != nil {
+		log.Printf("crash output: %v", err)
 	}
 	if console {
 		log.SetOutput(io.MultiWriter(f, os.Stderr))
