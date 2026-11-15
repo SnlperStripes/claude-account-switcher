@@ -187,7 +187,7 @@ Claude 重新启动后，会向每个勾选的聊天发送“The app was quit wh
 
 &nbsp;
 
-就在 Claude 退出前，切换器读取最近 30 分钟内有写入的每个 Claude Code 对话的末尾。如果最后一条消息是 Claude 尚未回答的提问或工具结果，或者是一次工具调用，这个聊天就算正在进行。回复已完成但仍有后台代理在工作的聊天也算，因为重启会停掉该代理，之后没有任何东西会开启这个聊天的下一轮：该代理在 `subagents/agent-*.meta.json` 中的记录为 `"requestShape": "background"`，且还没有 `"finished": true`，且其对话在最近 30 分钟内有写入。其他已完成的回复或你自己停止的回复不算。
+就在 Claude 退出前，切换器读取最近 30 分钟内有写入的每个 Claude Code 对话的末尾。如果最后一条消息是 Claude 尚未回答的提问或工具结果，或者是一次工具调用，这个聊天就算正在进行。回复已完成但仍有后台代理在工作的聊天也算，因为重启会停掉该代理，之后没有任何东西会开启这个聊天的下一轮：该代理在 `subagents/agent-*.meta.json` 中的记录为 `"requestShape": "background"`，且还没有 `"finished": true`，且其对话在最近 30 分钟内有写入。其他已完成的回复或你自己停止的回复不算。只在等待自己用 `CronCreate` 设定的定时任务的聊天也不算：这种任务不会在磁盘上留下记录，并且会随 Claude 退出而结束，所以切换后需要手动让这个聊天继续。
 
 对每个保持勾选的聊天，切换器会在目标账号的聊天条目中写入 Claude 自己在回复中途退出时留下的标记（`interruptedByQuitAt`），并从其他账号的副本中移除该标记，避免同一个聊天被继续两次。Claude 会在重启后 24 小时内继续带有标记的聊天；在此期间无法继续的聊天会停在原处。
 
@@ -266,6 +266,18 @@ claude-account-switcher -status
 
 打印所有已保存账号及其用量，然后退出。
 
+```powershell
+claude-account-switcher -status -json
+```
+
+以一个 JSON 对象打印同样的内容，重置时间采用 RFC 3339 格式，方便脚本和状态栏使用。还没有重置时间的限额（例如尚未使用的 5 小时窗口）不包含重置字段。单独使用 `-json` 效果相同。
+
+```powershell
+claude-account-switcher -version
+```
+
+打印版本号，然后退出。
+
 ## 构建
 
 需要 Go 1.26 或更新版本。
@@ -332,6 +344,26 @@ macOS 通用版本已通过 CI 构建，但尚未在真实 Mac 上测试。欢�
 
 **如何更新？**
 有新版本时，点击菜单顶部的提示即可下载、校验并以新版本重启。也可以直接运行新下载的版本，由它接管正在运行的旧版本。winget 用户可运行 `winget upgrade SnlperStripes.ClaudeAccountSwitcher`。账号和设置保存在独立的数据文件夹中，不受影响。
+
+## 故障排除
+
+**日志在哪里？**
+切换器在数据文件夹 `~/.claude-account-switcher`（Windows 上为 `%USERPROFILE%\.claude-account-switcher`）中写入 `switcher.log`。托盘菜单中的“打开数据文件夹”会打开该文件夹。启动时如果日志超过 1 MB，会重新开始记录。
+
+**如何一眼看到所有账号？**
+运行 `claude-account-switcher -status`。它为每个已保存账号打印一行，包含 5 小时和每周用量，用 `*` 标出当前登录的账号，然后退出。它只报告，到期的切换仍由托盘程序执行。
+
+**Claude 更新后切换失败。**
+每次切换前，切换器会把 `config.json` 和 Cookie 存储复制到数据文件夹的 `backups/` 中。如果修改 Claude 的文件失败，它会恢复该备份，并在托盘菜单顶部显示错误。同样的错误也记录在 `switcher.log` 中。最多保留最近 10 份备份。
+
+**怎样的问题报告最有用？**
+Claude 桌面版的版本（帮助 → 关于）、切换器的版本（`claude-account-switcher -version` 会打印，`switcher.log` 的第一行也有）、问题前后 `switcher.log` 的最后 30 行，以及你做了什么、预期是什么、实际发生了什么。请不要粘贴 Token、Cookie 或 `config.json`。
+
+**切换后账号没有变化。**
+切换会关闭 Claude，在关闭期间替换登录信息，然后重新启动 Claude。一直保持打开的窗口不会更换账号。如果菜单中该账号已经被勾选，点击它不会有任何反应。`-status` 标出的是切换器从 Claude 配置中读取到的账号。
+
+**切换后模型没有变化。**
+切换器不会更改模型。它只保存和恢复 `config.json` 中的三个登录条目以及 Cookie 文件，`config.json` 中的其他条目都保持 Claude 原样。
 
 ## 使用限制
 
