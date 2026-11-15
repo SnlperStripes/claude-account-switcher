@@ -28,7 +28,7 @@ func main() {
 		os.Exit(runThresholdDialog())
 	}
 	status := flag.Bool("status", false, "print accounts and usage, then exit")
-	asJSON := flag.Bool("json", false, "print -status as JSON")
+	asJSON := flag.Bool("json", false, "print -status as JSON (implies -status)")
 	showVersion := flag.Bool("version", false, "print the version, then exit")
 	flag.Parse()
 
@@ -51,7 +51,7 @@ func main() {
 	s := newSwitcher(dir)
 	language = chooseLanguage(s.st.Language, systemLanguages())
 
-	if *status {
+	if *status || *asJSON {
 		printStatus(s, *asJSON)
 		return
 	}
@@ -105,8 +105,19 @@ type statusReport struct {
 	Accounts []Account `json:"accounts"`
 }
 
-func statusJSON(snap snapshot) ([]byte, error) {
-	report := statusReport{Active: snap.Active, Accounts: snap.Accounts}
+func statusJSON(snap snapshot, now time.Time) ([]byte, error) {
+	accounts := make([]Account, len(snap.Accounts))
+	copy(accounts, snap.Accounts)
+	// Match the human output: a window whose reset time has passed reads as
+	// zero. Without this, a failed usage refresh leaves stale numbers here
+	// while usageText shows the window as free again.
+	for i, a := range accounts {
+		if a.Usage != nil {
+			current := a.Usage.current(now)
+			accounts[i].Usage = &current
+		}
+	}
+	report := statusReport{Active: snap.Active, Accounts: accounts}
 	if report.Accounts == nil {
 		report.Accounts = []Account{}
 	}
@@ -121,7 +132,7 @@ func printStatus(s *switcher, asJSON bool) {
 	s.check(ctx)
 	snap := s.snapshot()
 	if asJSON {
-		data, err := statusJSON(snap)
+		data, err := statusJSON(snap, time.Now())
 		if err != nil {
 			log.Printf("print status as JSON: %v", err)
 			return

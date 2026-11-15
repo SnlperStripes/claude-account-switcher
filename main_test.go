@@ -78,7 +78,7 @@ func TestStatusJSONShape(t *testing.T) {
 		},
 	}
 
-	data, err := statusJSON(snap)
+	data, err := statusJSON(snap, time.Date(2026, 11, 14, 21, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestStatusJSONShape(t *testing.T) {
 }
 
 func TestStatusJSONEmptyAccounts(t *testing.T) {
-	data, err := statusJSON(snapshot{})
+	data, err := statusJSON(snapshot{}, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,6 +161,48 @@ func TestStatusJSONEmptyAccounts(t *testing.T) {
 	}
 	if got.Accounts == nil {
 		t.Errorf("accounts is null, want an empty list: %s", data)
+	}
+}
+
+func TestStatusJSONZeroesAWindowWhoseResetHasPassed(t *testing.T) {
+	now := time.Date(2026, 11, 15, 12, 0, 0, 0, time.UTC)
+	snap := snapshot{
+		Active: "u",
+		Accounts: []Account{{
+			UUID: "u", Name: "Ada", Email: "ada@example.com", Plan: "Max",
+			Usage: &Usage{
+				Session: 97, SessionReset: now.Add(-time.Hour),
+				Weekly: 40, WeeklyReset: now.Add(48 * time.Hour),
+			},
+		}},
+	}
+
+	data, err := statusJSON(snap, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Accounts []struct {
+			Usage *struct {
+				Session float64 `json:"session"`
+				Weekly  float64 `json:"weekly"`
+			} `json:"usage"`
+		} `json:"accounts"`
+	}
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("not valid JSON: %v\n%s", err, data)
+	}
+	if len(got.Accounts) != 1 || got.Accounts[0].Usage == nil {
+		t.Fatalf("missing usage in %s", data)
+	}
+	if got.Accounts[0].Usage.Session != 0 {
+		t.Errorf("session = %v, want 0: the reset time has passed", got.Accounts[0].Usage.Session)
+	}
+	if got.Accounts[0].Usage.Weekly != 40 {
+		t.Errorf("weekly = %v, want 40: its reset is still in the future", got.Accounts[0].Usage.Weekly)
+	}
+	if snap.Accounts[0].Usage.Session != 97 {
+		t.Errorf("the snapshot was modified: session = %v, want 97 untouched", snap.Accounts[0].Usage.Session)
 	}
 }
 
