@@ -359,22 +359,6 @@ func relaunchOutsideDesktop(dataDir string) bool {
 	return startDetached(strings.TrimSuffix(exe, " (deleted)"), os.Args[1:]...) == nil
 }
 
-// insideDesktop walks up from pid through its parents and reports whether
-// one of them is the Claude app. The walk stops at init and after a fixed
-// number of steps, so a broken parent chain cannot loop.
-func insideDesktop(pid int, parent func(int) int, isDesktop func(int) bool) bool {
-	for range 64 {
-		if pid <= 1 {
-			return false
-		}
-		if isDesktop(pid) {
-			return true
-		}
-		pid = parent(pid)
-	}
-	return false
-}
-
 // isDesktopPID reports whether pid runs the Claude app, helpers included.
 func isDesktopPID(pid int) bool {
 	link, err := os.Readlink(filepath.Join("/proc", strconv.Itoa(pid), "exe"))

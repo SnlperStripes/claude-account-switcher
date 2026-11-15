@@ -53,11 +53,46 @@ func insideStoreApp() bool {
 	return len(hits) > 0
 }
 
+// insideClaudeApp reports whether the Claude app is among this process's
+// parents, for example when it was started from a terminal in the app. Claude
+// ends those processes when it quits, which would end the switcher in the
+// middle of a switch. A parent id Windows has reused for a Claude process
+// only costs one needless relaunch.
+func insideClaudeApp() bool {
+	pids, _ := desktopProcesses()
+	if len(pids) == 0 {
+		return false
+	}
+	app := make(map[int]bool, len(pids))
+	for _, pid := range pids {
+		app[int(pid)] = true
+	}
+	parents := parentPIDs()
+	return insideDesktop(os.Getppid(), func(pid int) int { return parents[pid] }, func(pid int) bool { return app[pid] })
+}
+
+// parentPIDs maps every running process to its parent.
+func parentPIDs() map[int]int {
+	parents := map[int]int{}
+	snap, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
+	if err != nil {
+		return parents
+	}
+	defer windows.CloseHandle(snap)
+	var e windows.ProcessEntry32
+	e.Size = uint32(unsafe.Sizeof(e))
+	for err = windows.Process32First(snap, &e); err == nil; err = windows.Process32Next(snap, &e) {
+		parents[int(e.ProcessID)] = int(e.ParentProcessID)
+	}
+	return parents
+}
+
 // relaunchOutsideDesktop starts the switcher again through Explorer when it
-// runs inside the Store app, so it does not share the app's redirections.
-// A marker file stops a relaunch loop should the probe ever misjudge.
+// runs inside Claude: under the app, which would end it on the first switch,
+// or with an older Store app's redirected AppData. A marker file stops a
+// relaunch loop should either check ever misjudge.
 func relaunchOutsideDesktop(dataDir string) bool {
-	if !insideStoreApp() {
+	if !insideClaudeApp() && !insideStoreApp() {
 		return false
 	}
 	marker := filepath.Join(dataDir, "relaunched")
