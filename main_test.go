@@ -206,6 +206,34 @@ func TestStatusJSONZeroesAWindowWhoseResetHasPassed(t *testing.T) {
 	}
 }
 
+// An account that has not used its 5-hour window has no reset time. The JSON
+// leaves it out instead of printing the year 1 for scripts to trip over.
+func TestStatusJSONLeavesOutUnsetResetTimes(t *testing.T) {
+	snap := snapshot{Accounts: []Account{{
+		UUID: "u", Name: "Ada", Plan: "Pro",
+		Usage: &Usage{
+			Weekly: 6, WeeklyReset: time.Date(2026, 11, 21, 7, 0, 0, 0, time.UTC),
+			CheckedAt: time.Date(2026, 11, 15, 11, 59, 0, 0, time.UTC),
+		},
+	}}}
+
+	data, err := statusJSON(snap, time.Date(2026, 11, 15, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "0001-01-01") {
+		t.Errorf("an unset reset time is printed as the year 1:\n%s", data)
+	}
+	for _, key := range []string{`"sessionReset"`, `"modelReset"`} {
+		if strings.Contains(string(data), key) {
+			t.Errorf("%s is present although it was never set:\n%s", key, data)
+		}
+	}
+	if !strings.Contains(string(data), `"weeklyReset": "2026-11-21T07:00:00Z"`) {
+		t.Errorf("the weekly reset time is missing:\n%s", data)
+	}
+}
+
 func TestSetupLogKeepsFileBelowLimit(t *testing.T) {
 	preserveLogger(t)
 

@@ -17,9 +17,9 @@ const apiBase = "https://api.anthropic.com"
 // Usage is an account's plan usage in percent, as the app shows it.
 type Usage struct {
 	Session      float64   `json:"session"`
-	SessionReset time.Time `json:"sessionReset"`
+	SessionReset time.Time `json:"sessionReset,omitzero"`
 	Weekly       float64   `json:"weekly"`
-	WeeklyReset  time.Time `json:"weeklyReset"`
+	WeeklyReset  time.Time `json:"weeklyReset,omitzero"`
 	// The weekly limit of one model, the fullest when there are several.
 	// ModelName is empty on a plan without one.
 	Model      float64   `json:"model,omitempty"`

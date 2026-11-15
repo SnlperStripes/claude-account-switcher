@@ -183,7 +183,7 @@ When Claude is back, it sends each checked chat "The app was quit while you were
 
 &nbsp;
 
-Right before Claude quits, the switcher reads the end of every Claude Code conversation written to in the last 30 minutes. A chat counts as working when its last message is a prompt or tool result Claude has not answered yet, or a tool call. A chat that finished its reply but still has a background agent at work counts too, because the restart stops that agent and nothing would start the chat's next turn: the agent's note in `subagents/agent-*.meta.json` says `"requestShape": "background"` and has no `"finished": true` yet and its transcript was written to in the last 30 minutes. Any other finished reply, or a reply you stopped yourself, does not count.
+Right before Claude quits, the switcher reads the end of every Claude Code conversation written to in the last 30 minutes. A chat counts as working when its last message is a prompt or tool result Claude has not answered yet, or a tool call. A chat that finished its reply but still has a background agent at work counts too, because the restart stops that agent and nothing would start the chat's next turn: the agent's note in `subagents/agent-*.meta.json` says `"requestShape": "background"` and has no `"finished": true` yet and its transcript was written to in the last 30 minutes. Any other finished reply, or a reply you stopped yourself, does not count. A chat that only waits for a recurring job it set for itself with `CronCreate` does not count either: such a job leaves no trace on disk and ends when Claude quits, so after a switch the chat has to be started again by hand.
 
 For each chat you keep checked, the switcher writes the mark Claude itself leaves when it quits during a reply (`interruptedByQuitAt`) into that chat's entry of the account you switch to, and removes the mark from the other accounts' copies, so the chat is not continued twice. Claude continues marked chats for 24 hours after the restart; a chat it cannot reach in that time simply stays where it stopped.
 
@@ -274,7 +274,7 @@ Prints every saved account with its usage and exits.
 claude-account-switcher -status -json
 ```
 
-Prints the same as one JSON object, with reset times in RFC 3339, for scripts and status bars.
+Prints the same as one JSON object, with reset times in RFC 3339, for scripts and status bars. A limit without a reset time, such as a 5-hour window that has not been used yet, has no reset field. `-json` on its own does the same.
 
 ```
 claude-account-switcher -version
@@ -360,7 +360,7 @@ Run `claude-account-switcher -status`. It prints one line per saved account with
 Before a switch, the switcher copies `config.json` and the cookie store into the `backups/` folder in the data folder. If the change to Claude's files fails, it restores that backup and shows the error at the top of the tray menu. The same error is in `switcher.log`. The last 10 backups are kept.
 
 **What makes a useful bug report?**
-The Claude desktop version (Help → About), the switcher version (the first line of `switcher.log` names it), the last 30 lines of `switcher.log` around the problem, and what you did, what you expected and what happened instead. Do not paste tokens, cookies or `config.json`.
+The Claude desktop version (Help → About), the switcher version (`claude-account-switcher -version` prints it, and the first line of `switcher.log` names it), the last 30 lines of `switcher.log` around the problem, and what you did, what you expected and what happened instead. Do not paste tokens, cookies or `config.json`.
 
 **The account did not change after switching.**
 A switch closes Claude, replaces the sign-in while it is closed, and starts Claude again. A window that stays open never changes account. If the menu item of the account is already checked, clicking it does nothing. `-status` marks the account the switcher reads from Claude's config.
