@@ -68,6 +68,9 @@ func TestRunningChatsCountsBackgroundAgents(t *testing.T) {
 	agent("finished", `{"requestShape":"background","finished":true}`, time.Minute)
 	agent("stale", `{"requestShape":"background"}`, 2*runningWithin)
 	agent("unreadable", `{"requestShape":`, time.Minute)
+	// An older CLI wrote no "finished", and a foreground agent ends with its chat's turn.
+	agent("foreground", `{"agentType":"Explore","requestShape":"foreground","spawnDepth":1}`, time.Minute)
+	agent("shapeless", `{"agentType":"Explore","spawnDepth":1}`, time.Minute)
 	got := runningChats(dir, at)
 	if len(got) != 1 || !got["waiting"] {
 		t.Fatalf("running = %v, want only waiting", got)

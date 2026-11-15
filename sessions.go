@@ -301,17 +301,20 @@ func runningChats(projectsDir string, now time.Time) map[string]bool {
 }
 
 // agentUnfinished reads the note the CLI keeps next to a subagent's
-// transcript, which gets "finished": true when the agent is done. A note
-// that cannot be read counts as finished.
+// transcript, which gets "finished": true when the agent is done. Only a
+// background agent counts: a foreground one cannot outlive its chat's turn,
+// and an older CLI never wrote "finished" at all. A note that cannot be read
+// counts as finished.
 func agentUnfinished(metaPath string) bool {
 	data, err := os.ReadFile(metaPath)
 	if err != nil {
 		return false
 	}
 	var meta struct {
-		Finished bool `json:"finished"`
+		Shape    string `json:"requestShape"`
+		Finished bool   `json:"finished"`
 	}
-	return json.Unmarshal(data, &meta) == nil && !meta.Finished
+	return json.Unmarshal(data, &meta) == nil && meta.Shape == "background" && !meta.Finished
 }
 
 func readTail(path string, n int64) []byte {
