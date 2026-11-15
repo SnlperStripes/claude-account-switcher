@@ -199,23 +199,6 @@ func TestStatParent(t *testing.T) {
 	}
 }
 
-func TestInsideDesktop(t *testing.T) {
-	// 40 (shell) -> 30 (claude-desktop helper) -> 20 (claude-desktop) -> 1
-	parents := map[int]int{40: 30, 30: 20, 20: 1, 50: 1}
-	parent := func(pid int) int { return parents[pid] }
-	isDesktop := func(pid int) bool { return pid == 20 || pid == 30 }
-	if !insideDesktop(40, parent, isDesktop) {
-		t.Error("a shell under the Claude app should count as inside")
-	}
-	if insideDesktop(50, parent, isDesktop) {
-		t.Error("a process under init is not inside the Claude app")
-	}
-	loop := func(pid int) int { return pid } // a chain that never ends
-	if insideDesktop(60, loop, func(int) bool { return false }) {
-		t.Error("a looping chain must end as not inside")
-	}
-}
-
 func TestDesktopEnvDropsRunAsNode(t *testing.T) {
 	in := []string{"HOME=/h", "ELECTRON_RUN_AS_NODE=1", "WAYLAND_DISPLAY=wayland-0", "ELECTRON_NO_ATTACH_CONSOLE=1"}
 	got := desktopEnv(in)

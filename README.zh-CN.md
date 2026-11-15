@@ -242,7 +242,7 @@ Claude 的数据目录因系统和安装方式而异：
 
 **更新。** 程序每天向 GitHub 查询一次最新版本号，不附带任何账号信息。有新版本时，菜单顶部会提示；点击后会下载文件、核对发布的 SHA-256 校验值、替换当前程序并重新启动。切换器自己下载的文件不会触发 SmartScreen 或 Gatekeeper 警告。失败时会打开下载页面。直接启动新下载的版本也可以：它会等旧版本完成正在进行的切换后接管。winget 用户可运行 `winget upgrade SnlperStripes.ClaudeAccountSwitcher`。若要关闭查询，请退出切换器，在 `state.json` 中加入 `"noUpdateCheck": true`，再启动程序。
 
-**Store 版的路径重定向。** 从 Store 版 Claude 内启动的程序，例如 Claude Code 终端，会看到重定向后的 AppData 目录。切换器会检测这种情况，必要时通过 Explorer 重新启动自身，以访问真实文件，并且不会随 Claude 一起退出。
+**从 Claude 内启动。** 从 Claude 内启动的程序，例如 Claude Code 终端，会在 Claude 退出时被一起关闭；较旧的 Store 版还会让它们看到重定向后的 AppData 目录。切换器会检测这种情况，并通过 Explorer 重新启动自身，以访问真实文件，并且不会随 Claude 一起退出。
 
 </details>
 
