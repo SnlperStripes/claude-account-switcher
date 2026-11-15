@@ -54,7 +54,7 @@ Three of those four steps are pure overhead, and the fourth is a guess.
 
 **Switches in one click.** Right-click the tray icon, pick an account. Claude quits, the sign-in is swapped, Claude starts again. Everything else in Claude's settings stays exactly as it was.
 
-**Brings your chats along.** Before Claude starts, the switcher copies the chat list entries of your other accounts into the one you switch to. Open the chat you were in and keep going. Projects come along too, so chats stay grouped in them. Chats you deleted stay deleted.
+**Brings your chats along.** Before Claude starts, the switcher copies the chat list entries of your other accounts into the one you switch to. Open the chat you were in and keep going. Projects come along too, so chats stay grouped in them. Chats you deleted stay deleted. Scheduled tasks are shared as well, so each one runs once in whichever account is signed in, not again after every switch.
 
 **Shows your usage at a glance, with one account or many.** The tray icon is a ring that fills with the active account's 5-hour usage: green, orange from 75%, red at your switch threshold. Hover it for the account and its numbers. The menu shows 5-hour and weekly usage for every saved account, live, with when each limit resets. A future 5-hour reset is shown even below the switch threshold, for example `5h 20%, resets 21:20`. At or above the threshold it reads `5h 98% until 21:20`. Times use a 24-hour clock in your local timezone.
 
@@ -205,7 +205,7 @@ Once per account, sign Claude Code in: switch the app to that account, then run 
 
 ## How it works
 
-The switcher saves and restores the sign-in of each account, copies the chat list and projects between accounts, and reads usage from `api.anthropic.com`. It backs up Claude's files before every switch and leaves the rest of Claude's settings alone.
+The switcher saves and restores the sign-in of each account, copies the chat list, projects and scheduled tasks between accounts, and reads usage from `api.anthropic.com`. It backs up Claude's files before every switch and leaves the rest of Claude's settings alone.
 
 <details>
 <summary><b>Which files, and what happens to them</b></summary>
@@ -228,6 +228,7 @@ Claude keeps its sign-in in two places inside its data folder:
 | Chat list | `claude-code-sessions/<account>/<organization>/local_<id>.json` | Copies missing entries in, refreshes older ones, never deletes |
 | Deleted chats | `deleted_<id>` next to the entries | Reads them, so a deleted chat is never copied back |
 | Projects | `local-agent-mode-sessions/<account>/<organization>/spaces.json` | Adds missing projects, refreshes older ones, never deletes. Leaves out the claude.ai project link of the other organization, and a project you deleted in an account is not copied back |
+| Scheduled tasks | `claude-code-sessions/<account>/<organization>/scheduled-tasks.json` | Gives every account the same list. The account you switch away from has your latest edits, and the run times of all copies are merged, so a slot that ran in one account does not run again in the next. A task you delete in one account goes away in all of them. The same task set up in two accounts (same name and schedule) is kept once, the copy whose prompt you edited last |
 | Chats stopped by a switch | `interruptedByQuitAt` in their `local_<id>.json` | Sets Claude's own quit mark on the chats you chose to continue, removes it from the other accounts' copies and from chats you unchecked |
 | Conversations | `~/.claude/projects` | Reads the end of the ones written to in the last 30 minutes to see which chats are mid-reply. Never writes. They are shared by all accounts already |
 | Claude Code sign-in, only with the terminal option | `~/.claude/.credentials.json`: `claudeAiOauth` and the other entries of the claude.ai account. `~/.claude.json`: `oauthAccount`. Both inside `CLAUDE_CONFIG_DIR` when that is set | Copies the current entries to the switcher's folder, puts in the saved ones of the new account and clears that file's account caches, the way `/login` does. Holds the locks Claude Code takes for its own token refresh meanwhile. Leaves MCP server tokens and every other entry alone. Between switches it only reads them, to keep the copy of the signed-in account current |

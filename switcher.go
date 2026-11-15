@@ -571,6 +571,7 @@ func (s *switcher) switchTo(uuid string, cause switchCause) error {
 		n, err := syncSessions(s.app().sessionsDir(), target.UUID, target.Org)
 		log.Printf("switched to %s, %d chats imported", target.label(), n)
 		s.importProjects(target)
+		s.importTasks(active, target)
 		return err
 	})
 	if err == nil {
@@ -634,7 +635,28 @@ func (s *switcher) importInto(active string) error {
 	n, err := syncSessions(s.app().sessionsDir(), a.UUID, a.Org)
 	log.Printf("%d chats imported into %s", n, a.label())
 	s.importProjects(a)
+	s.importTasks(active, a)
 	return err
+}
+
+// importTasks gives a the scheduled tasks of all accounts, so each runs once
+// in whichever account is signed in. from is the account Claude ran with
+// until now. A failure is logged and the switch goes on: the tasks then run
+// per account as before.
+func (s *switcher) importTasks(from string, a *Account) {
+	s.mu.Lock()
+	f := s.account(from)
+	s.mu.Unlock()
+	fromAccount, fromOrg := "", ""
+	if f != nil {
+		fromAccount, fromOrg = f.UUID, f.Org
+	}
+	n, err := syncTasks(s.app().sessionsDir(), fromAccount, fromOrg, a.UUID, a.Org, filepath.Join(s.dir, "tasks-seen.json"))
+	if err != nil {
+		log.Printf("scheduled tasks not shared with %s: %v", a.label(), err)
+		return
+	}
+	log.Printf("%d scheduled tasks updated in %s", n, a.label())
 }
 
 // importProjects copies the projects of all accounts into a. A failure only
