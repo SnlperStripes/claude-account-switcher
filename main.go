@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -27,6 +28,7 @@ func main() {
 		os.Exit(runThresholdDialog())
 	}
 	status := flag.Bool("status", false, "print accounts and usage, then exit")
+	asJSON := flag.Bool("json", false, "print -status as JSON")
 	showVersion := flag.Bool("version", false, "print the version, then exit")
 	flag.Parse()
 
@@ -50,7 +52,7 @@ func main() {
 	language = chooseLanguage(s.st.Language, systemLanguages())
 
 	if *status {
-		printStatus(s)
+		printStatus(s, *asJSON)
 		return
 	}
 
@@ -96,13 +98,37 @@ func setupLog(path string, console bool) {
 	}
 }
 
+// statusReport is the -status -json output: the active account's UUID and
+// every saved account with its usage. Account holds no sign-in data.
+type statusReport struct {
+	Active   string    `json:"active"`
+	Accounts []Account `json:"accounts"`
+}
+
+func statusJSON(snap snapshot) ([]byte, error) {
+	report := statusReport{Active: snap.Active, Accounts: snap.Accounts}
+	if report.Accounts == nil {
+		report.Accounts = []Account{}
+	}
+	return json.MarshalIndent(report, "", "  ")
+}
+
 // printStatus checks once and prints what the menu would show. It only reports:
 // a switch that is due is left to the tray.
-func printStatus(s *switcher) {
+func printStatus(s *switcher, asJSON bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	s.check(ctx)
 	snap := s.snapshot()
+	if asJSON {
+		data, err := statusJSON(snap)
+		if err != nil {
+			log.Printf("print status as JSON: %v", err)
+			return
+		}
+		fmt.Println(string(data))
+		return
+	}
 	if len(snap.Accounts) == 0 {
 		fmt.Println(tr("no accounts yet, sign in to Claude", "还没有账号，请先在 Claude 中登录"))
 	}

@@ -255,6 +255,12 @@ claude-account-switcher -status
 Prints every saved account with its usage and exits.
 
 ```
+claude-account-switcher -status -json
+```
+
+Prints the same as one JSON object, with reset times in RFC 3339, for scripts and status bars.
+
+```
 claude-account-switcher -version
 ```
 
