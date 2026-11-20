@@ -107,7 +107,7 @@ func syncSessions(root, account, org string) (int, error) {
 		if exists && s.activity <= old.activity {
 			continue
 		}
-		if err := copyFile(s.path, filepath.Join(target, s.name)); err != nil {
+		if err := importEntry(s.path, filepath.Join(target, s.name), exists); err != nil {
 			return written, err
 		}
 		written++
@@ -121,6 +121,43 @@ func syncSessions(root, account, org string) (int, error) {
 		byIdentity[s.identity()] = s.name
 	}
 	return written, nil
+}
+
+// A chat's Remote Control and cloud sessions live on claude.ai under the
+// account that started them. Another account cannot reattach to them, so its
+// app starts a new remote session, and an auto named chat then takes that
+// session's made up name, like desktop-<pc>-fluttering-lovelace (issue #81).
+// These keys stay with each account's own copy of the chat.
+var accountKeys = []string{"bridgeSessionIds", "cloudSessionId", "remoteControlKeptServerCopyId"}
+
+// importEntry copies another account's chat entry to dst and keeps the
+// accountKeys of the entry already at dst, or leaves them out for a new one.
+func importEntry(src, dst string, hasDst bool) error {
+	o, err := readObject(src)
+	if err != nil {
+		return err
+	}
+	own := &object{vals: map[string]json.RawMessage{}}
+	if hasDst {
+		if own, err = readObject(dst); err != nil {
+			return err
+		}
+	}
+	changed := false
+	for _, k := range accountKeys {
+		_, inSrc := o.get(k)
+		v, inOwn := own.get(k)
+		changed = changed || inSrc || inOwn
+		if inOwn {
+			o.set(k, v)
+		} else {
+			o.del(k)
+		}
+	}
+	if !changed {
+		return copyFile(src, dst)
+	}
+	return o.write(dst)
 }
 
 type sessionIndex struct {
