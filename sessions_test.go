@@ -155,6 +155,54 @@ func TestSyncSessionsKeepsNewerChatAfterClear(t *testing.T) {
 	}
 }
 
+// Remote Control sessions belong to the account that started them (issue #81).
+func TestSyncSessionsKeepsRemoteSessionsPerAccount(t *testing.T) {
+	root := t.TempDir()
+	write(t, filepath.Join(root, "a", "oa", "local_same.json"), `{"cliSessionId":"chat","title":"Fix login","lastActivityAt":300,"bridgeSessionIds":["session_a"],"cloudSessionId":"cloud_a","remoteControlKeptServerCopyId":"kept_a","remoteControlUserEnabled":true}`)
+	own := filepath.Join(root, "b", "ob", "local_same.json")
+	write(t, own, `{"cliSessionId":"chat","title":"Old title","lastActivityAt":100,"bridgeSessionIds":["session_b"]}`)
+	for i := range 2 {
+		n, err := syncSessions(root, "b", "ob")
+		if err != nil || (i == 0 && n != 1) || (i == 1 && n != 0) {
+			t.Fatalf("sync %d = %d, %v", i, n, err)
+		}
+	}
+	got := readJSON(t, own)
+	if got["title"] != "Fix login" || got["lastActivityAt"] != float64(300) || got["remoteControlUserEnabled"] != true {
+		t.Fatalf("the newer chat did not arrive: %v", got)
+	}
+	if ids, _ := got["bridgeSessionIds"].([]any); len(ids) != 1 || ids[0] != "session_b" {
+		t.Fatalf("bridgeSessionIds = %v; want the account's own session_b", got["bridgeSessionIds"])
+	}
+	for _, k := range []string{"cloudSessionId", "remoteControlKeptServerCopyId"} {
+		if _, ok := got[k]; ok {
+			t.Fatalf("%s came over from the other account", k)
+		}
+	}
+
+	if _, err := syncSessions(root, "c", "oc"); err != nil {
+		t.Fatal(err)
+	}
+	fresh := readJSON(t, filepath.Join(root, "c", "oc", "local_same.json"))
+	if fresh["title"] != "Fix login" {
+		t.Fatalf("new account got %v", fresh)
+	}
+	for _, k := range []string{"bridgeSessionIds", "cloudSessionId", "remoteControlKeptServerCopyId"} {
+		if _, ok := fresh[k]; ok {
+			t.Fatalf("new account got another account's %s", k)
+		}
+	}
+}
+
+func readJSON(t *testing.T, path string) map[string]any {
+	t.Helper()
+	var m map[string]any
+	if err := json.Unmarshal([]byte(read(t, path)), &m); err != nil {
+		t.Fatalf("%s: %v", path, err)
+	}
+	return m
+}
+
 func TestSyncSessionsReportsWriteFailure(t *testing.T) {
 	root := t.TempDir()
 	write(t, filepath.Join(root, "a", "oa", "local_valid.json"), `{"cliSessionId":"valid","lastActivityAt":100}`)
